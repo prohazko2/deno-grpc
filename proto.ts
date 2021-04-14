@@ -21,7 +21,7 @@ import type {
   //IParseOptions,
 } from "https://raw.githubusercontent.com/protobufjs/protobuf.js/v6.10.2/index.d.ts";
 
-import protobuf from "./vendor/protobuf.js";
+import protobuf from "./vendor/protobuf@v6.10.2.js";
 
 const xs = protobuf.exports as any;
 
