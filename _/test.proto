@@ -1,6 +1,6 @@
-syntax = "proto3";
+package prohazko;
 
-package prohazko.test;
+syntax = "proto3";
 
 service Greeter {
   rpc SayHello (HelloRequest) returns (HelloReply) {}
