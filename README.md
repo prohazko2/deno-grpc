@@ -8,6 +8,7 @@ I couldn't wait no more, so i made this.
 - [x] load proto files
 - [ ] `server` unary calls
 - [ ] `client` unary calls
+- [ ] errors
 - [ ] `server` server streams
 - [ ] `client` server streams
 - [ ] context deadlines
