@@ -1,9 +1,8 @@
 const port = 4500;
 
-const c = await Deno.connectTls({
-  port,
-  hostname: "localhost",
-  certFile: "./cert/cert.pem",
-});
+const pem = await Deno.readTextFile("./cert/cert.pem");
 
-console.log(c);
+const client = Deno.createHttpClient({ caData: pem });
+const req = await fetch(`https://localhost:${port}/test`, { client });
+
+console.log(req);
