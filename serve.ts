@@ -28,11 +28,26 @@ async function handleConn(conn: Deno.Conn) {
     console.log(req);
 
     const res = Res.encode({
-      message: `hello to you, ${req.name || "stanger"}`,
+      message: `hello ${req.name || "stanger"}`,
     }).finish();
 
-    const resp = new Response(res);
+    const rep = new Uint8Array(5 + res.length);
+    rep.set([0x00, 0x00, 0x00, 0x00, res.length]);
+    rep.set(res, 5);
 
-    respondWith(resp);
+    console.log(hexdump(rep));
+
+    const r = new Response(rep, {
+      //status: 0,
+      statusText: "OK",
+      headers: {
+        "content-type": "application/grpc+proto",
+      },
+    });
+
+    await respondWith(r);
+
+    // r.headers.append("grpc-status", "0");
+    // r.headers.append("grpc-message", "OK");
   }
 }
