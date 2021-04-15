@@ -10,6 +10,7 @@ I couldn't wait no more, so i made this.
 - [ ] `client` unary calls
 - [ ] `server` server streams
 - [ ] `client` server streams
+- [ ] context deadlines
 
 ## maybe goals
 
