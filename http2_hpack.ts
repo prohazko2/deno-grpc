@@ -44,7 +44,7 @@ const assert = _assert as Function;
 // import assert from "assert";
 // import util from "util";
 
-const logData = true;
+const logData = false;
 
 const noop = () => {};
 

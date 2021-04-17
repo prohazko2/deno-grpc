@@ -44,6 +44,10 @@ async function handleConn(conn: Deno.Conn) {
 
   //this.sentEndStream = true;
 
+  await _req.sendSettings();
+
+  await _req.sendSettings({ ACK: true });
+
   await _req.sendHeaders({
     ":status": "200",
     "grpc-accept-encoding": "identity",

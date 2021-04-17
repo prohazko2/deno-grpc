@@ -14,7 +14,7 @@ import { Buffer } from "https://deno.land/std@0.93.0/node/buffer.ts";
 
 const assert = _assert as Function;
 
-const logData = true;
+const logData = false;
 
 const MAX_PAYLOAD_SIZE = 16384;
 const WINDOW_UPDATE_PAYLOAD_SIZE = 4;

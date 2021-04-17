@@ -16,19 +16,20 @@ export class Http2Request {
   #headersFrameResolvers: ((f: Uint8Array) => void)[] = [];
   #dataFrameResolvers: ((f: Uint8Array) => void)[] = [];
 
+  #stream = 0;
+
   constructor(public conn: Deno.Conn) {
     this.#d.on("data", (x: Frame) => {
+      if (x.stream > 0) {
+        this.#stream = x.stream;
+      }
+
       if (x.type === "HEADERS") {
         this._resolveHeadersFrameWith(x);
       }
       if (x.type === "DATA") {
         this._resolveDataFrameWith(x);
       }
-      console.log(x);
-    });
-
-    this.#s.on("data", (x: any) => {
-      console.log("Serializer", x);
     });
   }
 
@@ -80,11 +81,20 @@ export class Http2Request {
     this.#headersFrameResolvers = [];
   }
 
+  sendSettings(flags: Record<string, boolean> = {}) {
+    return this.sendFrame({
+      type: "SETTINGS",
+      settings: {},
+      flags,
+      stream: 0,
+    });
+  }
+
   sendHeaders(headers: Record<string, string>) {
     return this.sendFrame({
       type: "HEADERS",
-      flags: {},
-      stream: 1,
+      flags: { END_HEADERS: true },
+      stream: this.#stream,
       data: new Compressor("RESPONSE").compress(headers),
       headers,
     });
@@ -94,15 +104,15 @@ export class Http2Request {
     return this.sendFrame({
       type: "DATA",
       data: data,
-      stream: 1,
+      stream: this.#stream,
     });
   }
 
   sendTrailers(headers: Record<string, string>) {
     return this.sendFrame({
       type: "HEADERS",
-      flags: { END_STREAM: true },
-      stream: 1,
+      flags: { END_HEADERS: true, END_STREAM: true },
+      stream: this.#stream,
       data: new Compressor("RESPONSE").compress(headers),
       headers,
     });
@@ -110,41 +120,7 @@ export class Http2Request {
 
   async sendFrame(frame: any) {
     for (const f of this.#s.__transform(frame, "", () => {})) {
-      const writen = await this.conn.write(f);
-      console.log("frm", writen);
+      await this.conn.write(f);
     }
   }
-
-  //_push
 }
-
-/*
-OutgoingResponse.prototype.writeHead = function writeHead(statusCode, reasonPhrase, headers) {
-  if (this.headersSent) {
-    return;
-  }
-
-  if (typeof reasonPhrase === 'string') {
-    this._log.warn('Reason phrase argument was present but ignored by the writeHead method');
-  } else {
-    headers = reasonPhrase;
-  }
-
-  for (var name in headers) {
-    this.setHeader(name, headers[name]);
-  }
-  headers = this._headers;
-
-  if (this.sendDate && !('date' in this._headers)) {
-    headers.date = (new Date()).toUTCString();
-  }
-
-  this._log.info({ status: statusCode, headers: this._headers }, 'Sending server response');
-
-  headers[':status'] = this.statusCode = statusCode;
-
-  this.stream.headers(headers);
-  this.headersSent = true;
-};
-
-*/
