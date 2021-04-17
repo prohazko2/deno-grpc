@@ -1,7 +1,7 @@
 import { hexdump } from "https://deno.land/x/prohazko@1.3.3/hex.ts";
 import { parse } from "./proto.ts";
 
-const port = 15070;
+import { Http2Request } from "./http2.ts";
 
 const text = await Deno.readTextFile("./_/test.proto");
 console.log(text);
@@ -11,54 +11,43 @@ const { root } = parse(text);
 const Req = root.lookupType("HelloRequest");
 const Res = root.lookupType("HelloReply");
 
-import { Http2Request } from "./http2.ts";
+export class GrpcService<T> {
+  constructor(private impl: T) {}
 
-console.log(`gonna listen on ${port} port`);
-for await (const conn of Deno.listen({ port })) {
-  handleConn(conn);
-}
+  async handleUnary(conn: Deno.Conn) {
+    const _req = new Http2Request(conn);
+    _req._readToCompletion();
 
-async function handleConn(conn: Deno.Conn) {
-  const _req = new Http2Request(conn);
-  _req._readToCompletion();
+    const data = await _req._waitForDataFrame();
 
-  // const h0 = await _req._waitForHeadersFrame();
-  // console.log(hexdump(h0));
+    const req = (Req.decode(data.slice(5)) as any) as { name: string };
+    console.log(req);
 
-  const data = await _req._waitForDataFrame();
-  console.log(hexdump(data));
+    const res = Res.encode({
+      message: `hello ${req.name || "stanger"}`,
+    }).finish();
 
-  const req = (Req.decode(data.slice(5)) as any) as { name: string };
-  console.log(req);
+    const out = new Uint8Array(5 + res.length);
+    out.set([0x00, 0x00, 0x00, 0x00, res.length]);
+    out.set(res, 5);
+    console.log(hexdump(out));
 
-  const res = Res.encode({
-    message: `hello ${req.name || "stanger"}`,
-  }).finish();
+    await _req.sendSettings();
 
-  const out = new Uint8Array(5 + res.length);
-  out.set([0x00, 0x00, 0x00, 0x00, res.length]);
-  out.set(res, 5);
-  console.log(hexdump(out));
+    await _req.sendSettings({ ACK: true });
 
-  const stream = 1;
+    await _req.sendHeaders({
+      ":status": "200",
+      "grpc-accept-encoding": "identity",
+      "grpc-encoding": "identity",
+      "content-type": "application/grpc+proto",
+    });
 
-  //this.sentEndStream = true;
+    await _req.sendData(out);
 
-  await _req.sendSettings();
-
-  await _req.sendSettings({ ACK: true });
-
-  await _req.sendHeaders({
-    ":status": "200",
-    "grpc-accept-encoding": "identity",
-    "grpc-encoding": "identity",
-    "content-type": "application/grpc+proto",
-  });
-
-  await _req.sendData(out);
-
-  await _req.sendTrailers({
-    "grpc-status": "0",
-    "grpc-message": "OK",
-  });
+    await _req.sendTrailers({
+      "grpc-status": "0",
+      "grpc-message": "OK",
+    });
+  }
 }
