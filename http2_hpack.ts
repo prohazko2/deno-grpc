@@ -289,7 +289,7 @@ export class HeaderSetDecompressor extends Transform {
   //     { name: 2  , value: 'X', index: false } // without indexing
   //     { name: 2  , value: 'Y', index: true  } // with indexing
   //     { name: 'A', value: 'Z', index: true  } // with indexing, literal name
-  _execute(rep: HeaderItem) {
+  *_execute(rep: HeaderItem) {
     this._log.trace(
       { key: rep.name, value: rep.value, index: rep.index },
       "Executing header representation"
@@ -310,6 +310,7 @@ export class HeaderSetDecompressor extends Transform {
 
       pair = entry.slice();
       this.push(pair);
+      yield pair;
     }
 
     // * A _literal representation_ that is _not added_ to the header table entails the following
@@ -332,6 +333,7 @@ export class HeaderSetDecompressor extends Transform {
       }
 
       this.push(pair);
+      yield pair;
     }
   }
 
@@ -1358,36 +1360,44 @@ export class Decompressor extends Transform {
   // `decompress` takes a full header block, and decompresses it using a new `HeaderSetDecompressor`
   // stream instance. This means that from now on, the advantages of streaming header decoding are
   // lost, but the API becomes simpler.
-  decompress(block: any) {
+  decompress(_block: any) {
+    let block = _block as Buffer;
+    if (block instanceof Uint8Array) {
+      block = Buffer.from(_block);
+    }
+
+    const headers = {} as Record<string, any>;
+
     const decompressor = new HeaderSetDecompressor(this._table);
-    decompressor.end(block);
+
+    if (!(block as any).cursor) {
+      (block as any).cursor = 0;
+    }
 
     let seenNonColonHeader = false;
-    const headers = {} as Record<string, any>;
-    let pair;
-    while ((pair = decompressor.read())) {
-      const name = pair[0];
-      const value = pair[1];
-      const isColonHeader = name.toString().trim()[0] === ":";
-      if (seenNonColonHeader && isColonHeader) {
-        this.emit("error", "PROTOCOL_ERROR");
-        return headers;
-      }
-      seenNonColonHeader = !isColonHeader;
-      if (name in headers) {
-        if (headers[name] instanceof Array) {
-          headers[name].push(value);
-        } else {
-          headers[name] = [headers[name], value];
+
+    while ((block as any).cursor < block.length) {
+      for (const [name, value] of decompressor._execute(
+        HeaderSetDecompressor.header(block)
+      )) {
+        const isColonHeader = name.toString().trim()[0] === ":";
+        if (seenNonColonHeader && isColonHeader) {
+          this.emit("error", "PROTOCOL_ERROR");
+          return headers;
         }
-      } else {
-        headers[name] = value;
+        seenNonColonHeader = !isColonHeader;
+        if (name in headers) {
+          if (headers[name] instanceof Array) {
+            headers[name].push(value);
+          } else {
+            headers[name] = [headers[name], value];
+          }
+        } else {
+          headers[name] = value;
+        }
       }
     }
 
-    // * If there are multiple Cookie header fields after decompression, these MUST be concatenated
-    //   into a single octet string using the two octet delimiter of 0x3B, 0x20 (the ASCII
-    //   string "; ").
     if ("cookie" in headers && headers["cookie"] instanceof Array) {
       headers["cookie"] = headers["cookie"].join("; ");
     }

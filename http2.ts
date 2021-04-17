@@ -5,7 +5,7 @@ const PRELUDE = new TextEncoder().encode("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
 
 import { Deserializer, Serializer, Frame } from "./http2_frames.ts";
 
-import { Compressor } from "./http2_hpack.ts";
+import { Compressor, Decompressor } from "./http2_hpack.ts";
 
 //const d = new Deserializer("SERVER");
 
@@ -13,10 +13,11 @@ export class Http2Request {
   #d = new Deserializer("SERVER");
   #s = new Serializer();
 
-  #headersFrameResolvers: ((f: Uint8Array) => void)[] = [];
   #dataFrameResolvers: ((f: Uint8Array) => void)[] = [];
 
   #stream = 0;
+
+  headers: Record<string, string> = {};
 
   constructor(public conn: Deno.Conn) {
     this.#d.on("data", (x: Frame) => {
@@ -25,7 +26,7 @@ export class Http2Request {
       }
 
       if (x.type === "HEADERS") {
-        this._resolveHeadersFrameWith(x);
+        this.headers = new Decompressor("REQUEST").decompress(x.data);
       }
       if (x.type === "DATA") {
         this._resolveDataFrameWith(x);
@@ -57,10 +58,6 @@ export class Http2Request {
     }
   }
 
-  _waitForHeadersFrame(): Promise<Uint8Array> {
-    return new Promise((resolve) => this.#headersFrameResolvers.push(resolve));
-  }
-
   _waitForDataFrame(): Promise<Uint8Array> {
     return new Promise((resolve) => this.#dataFrameResolvers.push(resolve));
   }
@@ -71,14 +68,6 @@ export class Http2Request {
       resolve(b);
     }
     this.#dataFrameResolvers = [];
-  }
-
-  _resolveHeadersFrameWith(frame: Frame) {
-    const b = new Uint8Array(frame.data.buffer);
-    for (const resolve of this.#headersFrameResolvers) {
-      resolve(b);
-    }
-    this.#headersFrameResolvers = [];
   }
 
   sendSettings(flags: Record<string, boolean> = {}) {

@@ -3,7 +3,7 @@ import { parse } from "./proto.ts";
 
 import { Http2Request } from "./http2.ts";
 
-const text = await Deno.readTextFile("./_/test.proto");
+const text = await Deno.readTextFile("./examples/greeter.proto");
 console.log(text);
 
 const { root } = parse(text);
@@ -20,8 +20,10 @@ export class GrpcService<T> {
 
     const data = await _req._waitForDataFrame();
 
+    console.log(`headers: `, _req.headers);
+
     const req = (Req.decode(data.slice(5)) as any) as { name: string };
-    console.log(req);
+    console.log(`body: `, req);
 
     const res = Res.encode({
       message: `hello ${req.name || "stanger"}`,
