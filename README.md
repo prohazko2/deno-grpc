@@ -15,7 +15,7 @@ I couldn't wait no more, so i made this.
 - [ ] calls metadata
 
 ## todo
-- [ ] remove all deno/node compatibility
+- [ ] remove all deno/node compatibility (Buffer, stream.Transform, etc)
 
 ## maybe goals
 
