@@ -14,6 +14,9 @@ I couldn't wait no more, so i made this.
 - [ ] context deadlines
 - [ ] calls metadata
 
+## todo
+- [ ] remove all deno/node compatibility
+
 ## maybe goals
 
 - [ ] `*.d.ts` client/service codegen
