@@ -22,6 +22,9 @@ async function handleConn(conn: Deno.Conn) {
   const _req = new Http2Request(conn);
   _req._readToCompletion();
 
+  // const h0 = await _req._waitForHeadersFrame();
+  // console.log(hexdump(h0));
+
   const data = await _req._waitForDataFrame();
   console.log(hexdump(data));
 
@@ -37,22 +40,21 @@ async function handleConn(conn: Deno.Conn) {
   out.set(res, 5);
   console.log(hexdump(out));
 
+  const stream = 1;
 
-  conn.close();
+  //this.sentEndStream = true;
 
-  // for await (const { request, respondWith } of Deno.serveHttp(conn)) {
+  await _req.sendHeaders({
+    ":status": "200",
+    "grpc-accept-encoding": "identity",
+    "grpc-encoding": "identity",
+    "content-type": "application/grpc+proto",
+  });
 
-  //   const r = new Response(rep, {
-  //     //status: 0,
-  //     statusText: "OK",
-  //     headers: {
-  //       "content-type": "application/grpc+proto",
-  //     },
-  //   });
+  await _req.sendData(out);
 
-  //   await respondWith(r);
-
-  //   // r.headers.append("grpc-status", "0");
-  //   // r.headers.append("grpc-message", "OK");
-  // }
+  await _req.sendTrailers({
+    "grpc-status": "0",
+    "grpc-message": "OK",
+  });
 }

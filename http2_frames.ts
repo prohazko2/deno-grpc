@@ -7,7 +7,6 @@
 // [1]: https://nodejs.org/api/stream.html#stream_class_stream_transform
 // [2]: https://nodejs.org/api/stream.html#stream_new_stream_readable_options
 
-
 import _assert from "https://deno.land/std@0.93.0/node/assert.ts";
 
 import { Transform } from "https://deno.land/std@0.93.0/node/stream.ts";
@@ -15,7 +14,7 @@ import { Buffer } from "https://deno.land/std@0.93.0/node/buffer.ts";
 
 const assert = _assert as Function;
 
-const logData = false;
+const logData = true;
 
 const MAX_PAYLOAD_SIZE = 16384;
 const WINDOW_UPDATE_PAYLOAD_SIZE = 4;
@@ -27,7 +26,7 @@ const consoleLogger = () => ({
   error: (...args: any[]) => (logData ? console.error(...args) : noop()),
 });
 
-type FrameType =
+export type FrameType =
   | "DATA"
   | "HEADERS"
   | "PRIORITY"
@@ -46,6 +45,7 @@ export type Frame = {
   data: Buffer;
   flags: Record<string, boolean>;
   settings: Record<string, number | boolean>;
+  headers: Record<string, string>;
 
   stream: number;
   last_stream: number;
@@ -368,14 +368,14 @@ export class Serializer extends Transform {
   // When there's an incoming frame object, it first generates the frame type specific part of the
   // frame (payload), and then then adds the header part which holds fields that are common to all
   // frame types (like the length of the payload).
-  _transform(
+  *__transform(
     frame: Frame,
     encoding: string,
     done: (error?: Error | null, data?: any) => void
   ) {
     this._log.trace({ frame }, "Outgoing frame");
 
-    assert(frame.type in Serializer, `Unknown frame type: ${frame.type}`);
+    assert(frame.type in SerializerFrames, `Unknown frame type: ${frame.type}`);
 
     const buffers = [] as Buffer[];
     SerializerFrames[frame.type](frame, buffers);
@@ -387,7 +387,8 @@ export class Serializer extends Transform {
       if (logData) {
         this._log.trace({ data: buffers[i] }, "Outgoing data");
       }
-      this.push(buffers[i]);
+      yield new Uint8Array(buffers[i].buffer);
+      //this.push(buffers[i]);
     }
 
     done();
