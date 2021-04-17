@@ -6,7 +6,7 @@ I couldn't wait no more, so i made this.
 ## goals - keep it simple
 
 - [x] load proto files
-- [ ] `server` unary calls
+- [x] `server` unary calls
 - [ ] `client` unary calls
 - [ ] errors
 - [ ] `server` server streams
