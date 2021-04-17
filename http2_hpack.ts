@@ -1,6 +1,6 @@
 // TODO: remove node dependencies
 
-// https://github.com/molnarg/node-http2/blob/master/lib/protocol/framer.js
+// https://github.com/molnarg/node-http2/blob/master/lib/protocol/compressor.js
 
 // The framer consists of two [Transform Stream][1] subclasses that operate in [object mode][2]:
 // the Serializer and the Deserializer

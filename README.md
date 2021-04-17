@@ -1,4 +1,4 @@
-# deno-grpc
+# `/x/grpc_basic`
 
 You probably should wait for more mature and standard aligned implementation.  
 I couldn't wait no more, so i made this.
@@ -6,13 +6,16 @@ I couldn't wait no more, so i made this.
 ## goals - keep it simple
 
 - [x] load proto files
-- [ ] `server` unary calls
+- [x] `server` unary calls
 - [ ] `client` unary calls
 - [ ] errors
 - [ ] `server` server streams
 - [ ] `client` server streams
 - [ ] context deadlines
 - [ ] calls metadata
+
+## todo
+- [ ] remove all deno/node compatibility (Buffer, stream.Transform, etc)
 
 ## maybe goals
 
