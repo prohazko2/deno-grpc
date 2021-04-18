@@ -3,14 +3,11 @@ import { startsWith } from "https://deno.land/std@0.93.0/bytes/mod.ts";
 
 const PRELUDE = new TextEncoder().encode("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
 
-import { Deserializer, Serializer, Frame } from "./http2_frames.ts";
+import { Deserializer, Serializer, Frame } from "./frames.ts";
+import { Compressor, Decompressor } from "./hpack.ts";
 
-import { Compressor, Decompressor } from "./http2_hpack.ts";
-
-//const d = new Deserializer("SERVER");
-
-export class Http2Request {
-  #d = new Deserializer("SERVER");
+export class Http2Conn {
+  #d: Deserializer = null!;
   #s = new Serializer();
 
   #dataFrameResolvers: ((f: Uint8Array) => void)[] = [];
@@ -21,23 +18,8 @@ export class Http2Request {
 
   headers: Record<string, string> = {};
 
-  constructor(public conn: Deno.Conn) {
-    this.#d.on("data", (x: Frame) => {
-      if (x.stream > 0) {
-        this.#stream = x.stream;
-      }
-
-      if (x.type === "HEADERS") {
-        this.headers = new Decompressor("REQUEST").decompress(x.data);
-      }
-      if (x.type === "DATA") {
-        this.#dataFrame = x;
-        this._resolveDataFrameWith(x);
-      }
-      if (x.type === "SETTINGS") {
-
-      }
-    });
+  constructor(public conn: Deno.Conn, public role = "CLIENT") {
+    this.#d = new Deserializer(role);
   }
 
   async _readToCompletion() {
@@ -60,7 +42,21 @@ export class Http2Request {
         b = b.slice(PRELUDE.length);
       }
 
-      this.#d._transform(b, "", () => {});
+      for (const f of this.#d.decode(b)) {
+        //console.log("frame", f);
+
+        if (f.stream > 0) {
+          this.#stream = f.stream;
+        }
+
+        if (f.type === "HEADERS") {
+          this.headers = new Decompressor("REQUEST").decompress(f.data);
+        }
+        if (f.type === "DATA") {
+          this.#dataFrame = f;
+          this._resolveDataFrameWith(f);
+        }
+      }
     }
   }
 
@@ -118,8 +114,8 @@ export class Http2Request {
   }
 
   async sendFrame(frame: any) {
-    for (const f of this.#s.__transform(frame, "", () => {})) {
-      await this.conn.write(f);
+    for (const b of this.#s.encode(frame)) {
+      await this.conn.write(b);
     }
   }
 }

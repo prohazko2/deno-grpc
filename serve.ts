@@ -1,7 +1,7 @@
 import { hexdump } from "https://deno.land/x/prohazko@1.3.3/hex.ts";
 import { Root, parse } from "./proto.ts";
 
-import { Http2Request } from "./http2.ts";
+import { Http2Conn } from "./http2/conn.ts";
 
 function delay(ms = 50) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -21,7 +21,7 @@ export class GrpcService<T> {
   }
 
   async handleUnary(conn: Deno.Conn) {
-    const _req = new Http2Request(conn);
+    const _req = new Http2Conn(conn, "SERVER");
     _req._readToCompletion();
 
     await _req.sendSettings();

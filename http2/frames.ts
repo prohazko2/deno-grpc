@@ -9,7 +9,6 @@
 
 import _assert from "https://deno.land/std@0.93.0/node/assert.ts";
 
-import { Transform } from "https://deno.land/std@0.93.0/node/stream.ts";
 import { Buffer } from "https://deno.land/std@0.93.0/node/buffer.ts";
 
 const assert = _assert as Function;
@@ -358,21 +357,17 @@ export const SerializerFrames = {
 //     empty      adds payload                adds header
 //     array        buffers                     buffer
 
-export class Serializer extends Transform {
+export class Serializer {
   _log = consoleLogger();
 
   constructor() {
-    super({ objectMode: true });
+    //super({ objectMode: true });
   }
 
   // When there's an incoming frame object, it first generates the frame type specific part of the
   // frame (payload), and then then adds the header part which holds fields that are common to all
   // frame types (like the length of the payload).
-  *__transform(
-    frame: Frame,
-    encoding: string,
-    done: (error?: Error | null, data?: any) => void
-  ) {
+  *encode(frame: Frame) {
     this._log.trace({ frame }, "Outgoing frame");
 
     assert(frame.type in SerializerFrames, `Unknown frame type: ${frame.type}`);
@@ -390,8 +385,6 @@ export class Serializer extends Transform {
       yield new Uint8Array(buffers[i].buffer);
       //this.push(buffers[i]);
     }
-
-    done();
   }
 }
 
@@ -653,7 +646,7 @@ export const DeserializerFrames = {
   },
 };
 
-export class Deserializer extends Transform {
+export class Deserializer {
   _log = consoleLogger();
   _role: string;
 
@@ -664,7 +657,6 @@ export class Deserializer extends Transform {
   _frame: Frame = null!;
 
   constructor(role: string) {
-    super({ objectMode: true });
     this._role = role;
 
     this._next(COMMON_HEADER_SIZE);
@@ -686,7 +678,7 @@ export class Deserializer extends Transform {
 
   // Parsing an incoming buffer is an iterative process because it can hold multiple frames if it's
   // large enough. A `cursor` is used to track the progress in parsing the incoming `chunk`.
-  _transform(_chunk: Buffer | Uint8Array, encoding: string, done: () => void) {
+  *decode(_chunk: Buffer | Uint8Array) {
     let cursor = 0;
     let chunk = _chunk as Buffer;
 
@@ -722,8 +714,7 @@ export class Deserializer extends Transform {
         if (payloadSize <= MAX_PAYLOAD_SIZE) {
           this._next(+payloadSize);
         } else {
-          this.emit("error", "FRAME_SIZE_ERROR");
-          return;
+          throw new Error("FRAME_SIZE_ERROR");
         }
       }
 
@@ -741,10 +732,10 @@ export class Deserializer extends Transform {
           );
           if (error) {
             this._log.error(`Incoming frame parsing error: ${error}`);
-            this.emit("error", error);
+            throw new Error(error);
           } else {
             this._log.trace({ frame: this._frame }, "Incoming frame");
-            this.push(this._frame);
+            yield this._frame;
           }
         } else {
           this._log.error("Unknown type incoming frame");
@@ -753,8 +744,6 @@ export class Deserializer extends Transform {
         this._next(COMMON_HEADER_SIZE);
       }
     }
-
-    done();
   }
 }
 

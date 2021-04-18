@@ -3,7 +3,7 @@
 You probably should wait for more mature and standard aligned implementation.  
 I couldn't wait no more, so i made this.
 
-## goals - keep it simple
+### goals - keep it simple
 
 - [x] load proto files
 - [x] `server` unary calls
@@ -13,17 +13,18 @@ I couldn't wait no more, so i made this.
 - [ ] `client` server streams
 - [ ] context deadlines
 - [ ] calls metadata
+- [ ] logging
 
-## todo
+### todo
 - [ ] remove all deno/node compatibility (Buffer, stream.Transform, etc)
-- [ ] read more about http2 settings frame
+- [ ] acquire more knowledge about http2 frames
 
-## maybe goals
+### maybe goals
 
 - [ ] `*.d.ts` client/service codegen
 - [ ] builtin retries
 
-## non goals - gRPC bloat
+### non goals - gRPC bloat
 
 - [x] no TLS
 - [x] no client streams

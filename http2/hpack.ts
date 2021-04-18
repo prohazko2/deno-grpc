@@ -12,7 +12,7 @@ import _assert from "https://deno.land/std@0.93.0/node/assert.ts";
 import { Transform } from "https://deno.land/std@0.93.0/node/stream.ts";
 import { Buffer } from "https://deno.land/std@0.93.0/node/buffer.ts";
 
-import type { Frame } from "./http2_frames.ts";
+import type { Frame } from "./frames.ts";
 
 const assert = _assert as Function;
 
