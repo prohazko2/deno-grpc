@@ -104,5 +104,11 @@ export function getClient<T>(
   serviceName: string
 ): GrpcClient & T {
   const client = new GrpcClient(conn, _def, serviceName);
+
+  Object.keys(client.svc.methods).forEach((methodName) => {
+    (client as any)[methodName] = (req: any) =>
+      client._callMethod(methodName, req);
+  });
+
   return client as GrpcClient & T;
 }
