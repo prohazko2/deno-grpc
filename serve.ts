@@ -24,8 +24,8 @@ export class GrpcService<T> {
     const _req = new Http2Request(conn);
     _req._readToCompletion();
 
-    await delay(1);
     await _req.sendSettings();
+    await _req.sendSettings({ ACK: true });
 
     const data = await _req._waitForDataFrame();
 
@@ -53,11 +53,7 @@ export class GrpcService<T> {
     const out = new Uint8Array(5 + res.length);
     out.set([0x00, 0x00, 0x00, 0x00, res.length]);
     out.set(res, 5);
-    console.log(hexdump(out));
-
-    await _req.sendSettings();
-
-    await _req.sendSettings({ ACK: true });
+    //console.log(hexdump(out));
 
     await _req.sendHeaders({
       ":status": "200",
