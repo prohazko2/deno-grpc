@@ -16,6 +16,7 @@ I couldn't wait no more, so i made this.
 
 ## todo
 - [ ] remove all deno/node compatibility (Buffer, stream.Transform, etc)
+- [ ] read more about http2 settings frame
 
 ## maybe goals
 

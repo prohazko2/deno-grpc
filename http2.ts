@@ -17,6 +17,8 @@ export class Http2Request {
 
   #stream = 0;
 
+  #dataFrame: Frame = null!;
+
   headers: Record<string, string> = {};
 
   constructor(public conn: Deno.Conn) {
@@ -29,7 +31,11 @@ export class Http2Request {
         this.headers = new Decompressor("REQUEST").decompress(x.data);
       }
       if (x.type === "DATA") {
+        this.#dataFrame = x;
         this._resolveDataFrameWith(x);
+      }
+      if (x.type === "SETTINGS") {
+
       }
     });
   }
@@ -59,6 +65,10 @@ export class Http2Request {
   }
 
   _waitForDataFrame(): Promise<Uint8Array> {
+    if (this.#dataFrame) {
+      return Promise.resolve(new Uint8Array(this.#dataFrame.data.buffer));
+    }
+
     return new Promise((resolve) => this.#dataFrameResolvers.push(resolve));
   }
 

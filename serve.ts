@@ -3,6 +3,10 @@ import { Root, parse } from "./proto.ts";
 
 import { Http2Request } from "./http2.ts";
 
+function delay(ms = 50) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export class GrpcService<T> {
   def: Root;
   impl: T;
@@ -19,6 +23,9 @@ export class GrpcService<T> {
   async handleUnary(conn: Deno.Conn) {
     const _req = new Http2Request(conn);
     _req._readToCompletion();
+
+    await delay(1);
+    await _req.sendSettings();
 
     const data = await _req._waitForDataFrame();
 
