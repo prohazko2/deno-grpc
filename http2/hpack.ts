@@ -33,18 +33,7 @@ const assert = _assert as Function;
 // [node-objectmode]: https://nodejs.org/api/stream.html#stream_new_stream_readable_options
 // [http2-compression]: https://tools.ietf.org/html/rfc7541
 
-// export { HeaderTable };
-
-// export { HuffmanTable };
-// export { HeaderSetCompressor };
-// export { HeaderSetDecompressor };
-// export { Compressor };
-// export { Decompressor };
-// import { Transform as TransformStream } from "stream";
-// import assert from "assert";
-// import util from "util";
-
-const logData = false;
+const logData = true;
 
 const noop = () => {};
 
@@ -469,10 +458,7 @@ export class HeaderSetCompressor extends Transform {
   }
 
   send(rep: HeaderItem) {
-    this._log.trace(
-      { key: rep.name, value: rep.value, index: rep.index },
-      "Emitting header representation"
-    );
+    this._log.trace(rep, "Emitting header representation");
 
     if (!rep.chunks) {
       rep.chunks = HeaderSetCompressor.header(rep);
@@ -483,7 +469,7 @@ export class HeaderSetCompressor extends Transform {
   // `_transform` is the implementation of the [corresponding virtual function][_transform] of the
   // TransformStream class. It processes the input headers one by one:
   // [_transform]: https://nodejs.org/api/stream.html#stream_transform_transform_chunk_encoding_callback
-  _transform(pair: HeaderTablePair, encoding: string, callback: Function) {
+  *__transform(pair: HeaderTablePair) {
     const name = pair[0].toLowerCase();
     const value = pair[1];
     let entry;
@@ -515,7 +501,16 @@ export class HeaderSetCompressor extends Transform {
       name === "authorization";
 
     if (fullMatch !== -1 && !mustNeverIndex) {
-      this.send({ name: fullMatch, value: fullMatch, index: false });
+      console.log({ pair, fullMatch, entry });
+      //this.send({ name: fullMatch, value: fullMatch, index: false });
+      const chunks = HeaderSetCompressor.header({
+        name: fullMatch,
+        value: fullMatch,
+        index: false,
+      });
+      for (const c of chunks) {
+        yield c;
+      }
     }
 
     // * otherwise, it will be a literal representation (with a name index if there's a name match)
@@ -528,16 +523,28 @@ export class HeaderSetCompressor extends Transform {
         this._table.add(entry);
       }
 
-      this.send({
+      const chunks = HeaderSetCompressor.header({
         name: nameMatch !== -1 ? nameMatch : name,
         value,
         index: indexing,
         mustNeverIndex,
         contextUpdate: false,
       });
+
+      for (const c of chunks) {
+        yield c;
+      }
+
+      // this.send({
+      //   name: nameMatch !== -1 ? nameMatch : name,
+      //   value,
+      //   index: indexing,
+      //   mustNeverIndex,
+      //   contextUpdate: false,
+      // });
     }
 
-    callback();
+    //callback();
   }
 
   // `_flush` is the implementation of the [corresponding virtual function][_flush] of the
@@ -637,7 +644,7 @@ export class HeaderSetCompressor extends Transform {
     }
   }
 
-  static header(header: HeaderItem) {
+  static header(header: HeaderItem): Buffer[] {
     let representation;
     const buffers = [];
 
@@ -1223,6 +1230,8 @@ export class Compressor extends Transform {
     const colonHeaders = [];
     const nonColonHeaders = [];
 
+    const chunks: Buffer[] = [];
+
     // To ensure we send colon headers first
     for (const name in headers) {
       if (name.trim()[0] === ":") {
@@ -1250,23 +1259,20 @@ export class Compressor extends Transform {
 
       if (value instanceof Array) {
         for (let i = 0; i < value.length; i++) {
-          compressor.write([name, String(value[i])]);
+          for (const b of compressor.__transform([name, String(value[i])])) {
+            chunks.push(b);
+          }
         }
       } else {
-        compressor.write([name, String(value)]);
+        for (const b of compressor.__transform([name, String(value)])) {
+          chunks.push(b);
+        }
       }
     }
 
     colonHeaders.forEach(compressHeader);
     nonColonHeaders.forEach(compressHeader);
 
-    compressor.end();
-
-    let chunk;
-    const chunks = [];
-    while ((chunk = compressor.read())) {
-      chunks.push(chunk);
-    }
     return concat(chunks as any);
   }
 

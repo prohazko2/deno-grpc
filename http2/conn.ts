@@ -14,12 +14,17 @@ export class Http2Conn {
 
   #stream = 0;
 
-  #dataFrame: Frame = null!;
+  dataFrame: Frame = null!;
 
   headers: Record<string, string> = {};
 
   constructor(public conn: Deno.Conn, public role = "CLIENT") {
     this.#d = new Deserializer(role);
+
+    // TODO: figure out why
+    if (role == "CLIENT") {
+      this.#stream = 1;
+    }
   }
 
   async _readToCompletion() {
@@ -50,10 +55,11 @@ export class Http2Conn {
         }
 
         if (f.type === "HEADERS") {
-          this.headers = new Decompressor("REQUEST").decompress(f.data);
+          const got = new Decompressor("REQUEST").decompress(f.data);
+          this.headers = { ...this.headers, ...got };
         }
         if (f.type === "DATA") {
-          this.#dataFrame = f;
+          this.dataFrame = f;
           this._resolveDataFrameWith(f);
         }
       }
@@ -61,8 +67,8 @@ export class Http2Conn {
   }
 
   _waitForDataFrame(): Promise<Uint8Array> {
-    if (this.#dataFrame) {
-      return Promise.resolve(new Uint8Array(this.#dataFrame.data.buffer));
+    if (this.dataFrame) {
+      return Promise.resolve(new Uint8Array(this.dataFrame.data.buffer));
     }
 
     return new Promise((resolve) => this.#dataFrameResolvers.push(resolve));
@@ -76,6 +82,10 @@ export class Http2Conn {
     this.#dataFrameResolvers = [];
   }
 
+  sendPrelude() {
+    return this.conn.write(PRELUDE);
+  }
+
   sendSettings(flags: Record<string, boolean> = {}) {
     return this.sendFrame({
       type: "SETTINGS",
@@ -85,7 +95,10 @@ export class Http2Conn {
     });
   }
 
-  sendHeaders(headers: Record<string, string>) {
+  sendHeaders(
+    headers: Record<string, string>
+    // flags: Record<string, boolean> = {}
+  ) {
     return this.sendFrame({
       type: "HEADERS",
       flags: { END_HEADERS: true },
@@ -98,6 +111,15 @@ export class Http2Conn {
   sendData(data: Uint8Array) {
     return this.sendFrame({
       type: "DATA",
+      data: data,
+      stream: this.#stream,
+    });
+  }
+
+  endData(data: Uint8Array) {
+    return this.sendFrame({
+      type: "DATA",
+      flags: { END_STREAM: true },
       data: data,
       stream: this.#stream,
     });

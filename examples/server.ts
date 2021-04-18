@@ -1,9 +1,8 @@
 import { GrpcService } from "../serve.ts";
 import { Greeter } from "./greeter.d.ts";
 
-const text = await Deno.readTextFile("./examples/greeter.proto");
-
 const port = 15070;
+const text = await Deno.readTextFile("./examples/greeter.proto");
 
 const svc = new GrpcService<Greeter>(text, {
   SayHello({ name }) {

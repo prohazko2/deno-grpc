@@ -3,10 +3,6 @@ import { Root, parse } from "./proto.ts";
 
 import { Http2Conn } from "./http2/conn.ts";
 
-function delay(ms = 50) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export class GrpcService<T> {
   def: Root;
   impl: T;
