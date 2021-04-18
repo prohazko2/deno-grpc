@@ -501,8 +501,6 @@ export class HeaderSetCompressor extends Transform {
       name === "authorization";
 
     if (fullMatch !== -1 && !mustNeverIndex) {
-      console.log({ pair, fullMatch, entry });
-      //this.send({ name: fullMatch, value: fullMatch, index: false });
       const chunks = HeaderSetCompressor.header({
         name: fullMatch,
         value: fullMatch,

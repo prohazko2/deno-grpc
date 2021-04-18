@@ -16,3 +16,5 @@ const resp = await client._callMethod<HelloRequest, HelloReply>("SayHello", {
 });
 
 console.log("resp", resp);
+
+client.close();

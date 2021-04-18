@@ -27,7 +27,7 @@ export class Http2Conn {
     }
   }
 
-  async *_readToCompletion() {
+  async _readToCompletion() {
     for (;;) {
       let b = new Uint8Array(4096);
       let n: number | null = null;
@@ -35,7 +35,7 @@ export class Http2Conn {
       try {
         n = await this.conn.read(b);
       } catch (err) {
-        console.error(err);
+        //console.error(err);
       }
 
       if (!n) {
@@ -63,7 +63,7 @@ export class Http2Conn {
           this._resolveDataFrameWith(f);
         }
 
-        yield f;
+        //yield f;
       }
     }
   }
@@ -135,6 +135,11 @@ export class Http2Conn {
       data: new Compressor("RESPONSE").compress(headers),
       headers,
     });
+  }
+
+  close() {
+    // TODO: send some graceful close http frame here
+    this.conn.close();
   }
 
   async sendFrame(frame: any) {

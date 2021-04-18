@@ -68,8 +68,6 @@ export class GrpcClient {
       ...this.getDefaultHeaders(),
       ":path": path,
     };
-    console.log("headers", headers);
-    console.log("method", method);
 
     await this.ensureConn();
 
@@ -87,13 +85,16 @@ export class GrpcClient {
     await this.conn.endData(dataBytes);
 
     const respBytes = await this.conn._waitForDataFrame();
-    //console.log('respBytes', respBytes);
 
     const res = (this.root
       .lookupType(method.responseType)
       .decode(respBytes.slice(5)) as any) as Res;
 
     return res;
+  }
+
+  close() {
+    this.conn.close();
   }
 }
 
