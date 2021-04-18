@@ -33,7 +33,7 @@ const assert = _assert as Function;
 // [node-objectmode]: https://nodejs.org/api/stream.html#stream_new_stream_readable_options
 // [http2-compression]: https://tools.ietf.org/html/rfc7541
 
-const logData = true;
+const logData = false;
 
 const noop = () => {};
 

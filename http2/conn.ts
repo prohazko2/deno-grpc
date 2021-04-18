@@ -27,7 +27,7 @@ export class Http2Conn {
     }
   }
 
-  async _readToCompletion() {
+  async *_readToCompletion() {
     for (;;) {
       let b = new Uint8Array(4096);
       let n: number | null = null;
@@ -62,6 +62,8 @@ export class Http2Conn {
           this.dataFrame = f;
           this._resolveDataFrameWith(f);
         }
+
+        yield f;
       }
     }
   }
