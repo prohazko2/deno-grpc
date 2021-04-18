@@ -7,7 +7,7 @@ const text = await Deno.readTextFile("./examples/greeter.proto");
 const svc = new GrpcService<Greeter>(text, {
   SayHello({ name }) {
     const message = `hello ${name || "stranger"}`;
-    return { message };
+    return { message, time: new Date().toISOString() };
   },
 });
 

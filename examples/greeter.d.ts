@@ -8,4 +8,5 @@ export interface HelloRequest {
 
 export interface HelloReply {
   message?: string;
+  time?: string;
 }

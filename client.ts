@@ -54,15 +54,18 @@ export class GrpcClient {
       ":scheme": "http",
       ":method": "POST",
       ":authority": this.getAuthority(),
-      //":path": "/ric.echo.Greeter/SayHello",
     };
   }
 
   async _callMethod<Req, Res>(name: string, req: Req): Promise<Res> {
     // TODO: throw error here on not found
-
     const method = this.svc.methods[name];
-    const path = `/${this.svc.fullName.replace(".", "")}/${method.name}`;
+    
+    let serviceName = this.svc.fullName;
+    if (serviceName.startsWith(".")) {
+      serviceName = serviceName.replace(".", "");
+    }
+    const path = `/${serviceName}/${method.name}`;
 
     const headers = {
       ...this.getDefaultHeaders(),
