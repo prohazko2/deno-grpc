@@ -82,9 +82,9 @@ import { GrpcService } from "https://deno.land/x/grpc_basic@0.2.5/server.ts";
 import { Greeter } from "./greeter.d.ts";
 
 const port = 15070;
-const text = await Deno.readTextFile("./greeter.proto");
+const root = await Deno.readTextFile("./greeter.proto");
 
-const svc = new GrpcService<Greeter>(text, {
+const svc = new GrpcService<Greeter>(root, {
   async SayHello({ name }) {
     const message = `hello ${name || "world"}`;
     return { message, time: new Date().toISOString() };

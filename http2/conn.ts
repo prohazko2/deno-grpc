@@ -1,22 +1,25 @@
-import { hexdump } from "https://deno.land/x/prohazko@1.3.3/hex.ts";
 import { startsWith } from "https://deno.land/std@0.93.0/bytes/mod.ts";
-
-const PRELUDE = new TextEncoder().encode("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
 
 import { Deserializer, Serializer, Frame } from "./frames.ts";
 import { Compressor, Decompressor } from "./hpack.ts";
+
+const PRELUDE = new TextEncoder().encode("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
+
+type Headers = Record<string, string>;
 
 export class Http2Conn {
   #d: Deserializer = null!;
   #s = new Serializer();
 
   #dataFrameResolvers: ((f: Uint8Array) => void)[] = [];
+  #trailersResolvers: ((f: Headers) => void)[] = [];
 
   #stream = 0;
 
   dataFrame: Frame = null!;
-
-  headers: Record<string, string> = {};
+  headers: Headers = {};
+  trailers: Headers = {};
+  trailersGot = false;
 
   constructor(public conn: Deno.Conn, public role = "CLIENT") {
     this.#d = new Deserializer(role);
@@ -57,6 +60,11 @@ export class Http2Conn {
         if (f.type === "HEADERS") {
           const got = new Decompressor("REQUEST").decompress(f.data);
           this.headers = { ...this.headers, ...got };
+          if (f.flags.END_STREAM) {
+            this.trailersGot = true;
+            this.trailers = { ...this.trailers, ...got };
+            this._resolveTrailers();
+          }
         }
         if (f.type === "DATA") {
           this.dataFrame = f;
@@ -72,8 +80,14 @@ export class Http2Conn {
     if (this.dataFrame) {
       return Promise.resolve(new Uint8Array(this.dataFrame.data.buffer));
     }
-
     return new Promise((resolve) => this.#dataFrameResolvers.push(resolve));
+  }
+
+  _waitForTrailers(): Promise<Headers> {
+    if (this.trailersGot) {
+      return Promise.resolve(this.trailers);
+    }
+    return new Promise((resolve) => this.#trailersResolvers.push(resolve));
   }
 
   _resolveDataFrameWith(frame: Frame) {
@@ -82,6 +96,13 @@ export class Http2Conn {
       resolve(b);
     }
     this.#dataFrameResolvers = [];
+  }
+
+  _resolveTrailers() {
+    for (const resolve of this.#trailersResolvers) {
+      resolve(this.trailers);
+    }
+    this.#trailersResolvers = [];
   }
 
   sendPrelude() {

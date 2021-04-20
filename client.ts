@@ -3,6 +3,8 @@ import { parse, Root, Service } from "./proto.ts";
 
 import { Http2Conn } from "./http2/conn.ts";
 
+import { Status, GrpcError } from "./error.ts";
+
 export type ClientInitOptions = Deno.ConnectOptions & {
   root: string | Root;
   serviceName: string;
@@ -94,13 +96,31 @@ export class GrpcClient {
 
     await this.http2.endData(dataBytes);
 
-    const respBytes = await this.http2._waitForDataFrame();
+    const resp = await Promise.race([
+      this.http2._waitForTrailers(),
+      this.http2._waitForDataFrame(),
+    ]);
 
-    const res = (this.root
-      .lookupType(method.responseType)
-      .decode(respBytes.slice(5)) as any) as Res;
+    if (resp instanceof Uint8Array) {
+      const res = (this.root
+        .lookupType(method.responseType)
+        .decode(resp.slice(5)) as unknown) as Res;
 
-    return res;
+      return res;
+    }
+
+    let textStatus = Status[+resp["grpc-status"]];
+    const meesage = decodeURIComponent(resp["grpc-message"]);
+
+    if (!textStatus) {
+      textStatus = Status[Status.UNKNOWN];
+    }
+
+    const err = new GrpcError(`${textStatus}: ${meesage}`);
+    err.grpcCode = +resp["grpc-status"];
+    err.grpcMessage = meesage;
+
+    throw err;
   }
 
   close() {
@@ -113,7 +133,7 @@ export function getClient<T>(options: ClientInitOptions): GrpcClient & T {
   const client = new GrpcClient(options);
 
   Object.keys(client.svc.methods).forEach((methodName) => {
-    (client as any)[methodName] = (req: any) =>
+    (client as any)[methodName] = (req: unknown) =>
       client._callMethod(methodName, req);
   });
 
