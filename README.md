@@ -78,7 +78,7 @@ export interface HelloReply {
 ### `server.ts`
 
 ```ts
-import { GrpcService } from "https://deno.land/x/grpc_basic@0.2.5/server.ts";
+import { GrpcService } from "https://deno.land/x/grpc_basic@0.2.7/server.ts";
 import { Greeter } from "./greeter.d.ts";
 
 const port = 15070;
@@ -100,7 +100,7 @@ for await (const conn of Deno.listen({ port })) {
 ### `client.ts`
 
 ```ts
-import { getClient } from "https://deno.land/x/grpc_basic@0.2.5/client.ts";
+import { getClient } from "https://deno.land/x/grpc_basic@0.2.7/client.ts";
 import { Greeter } from "./greeter.d.ts";
 
 const client = getClient<Greeter>({
