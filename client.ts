@@ -3,45 +3,52 @@ import { parse, Root, Service } from "./proto.ts";
 
 import { Http2Conn } from "./http2/conn.ts";
 
-export class GrpcCall {}
+export type ClientInitOptions = Deno.ConnectOptions & {
+  root: string | Root;
+  serviceName: string;
+};
 
 export class GrpcClient {
-  #denoConn: Deno.Conn;
+  conn: Deno.Conn = null!;
+  http2: Http2Conn = null!;
 
   serviceName: string;
   root: Root;
-  conn: Http2Conn;
   svc: Service;
 
   state = "?";
 
-  constructor(conn: Deno.Conn, _def: string | Root, serviceName: string) {
-    this.#denoConn = conn;
+  constructor(private options: ClientInitOptions) {
+    const { root, serviceName } = options;
 
-    this.root = _def as Root;
-    if (typeof _def === "string") {
-      this.root = parse(_def).root;
+    this.root = root as Root;
+    if (typeof root === "string") {
+      this.root = parse(root).root;
     }
     this.serviceName = serviceName;
     this.svc = this.root.lookupService(serviceName);
-    this.conn = new Http2Conn(conn, "CLIENT");
   }
 
   async ensureConn() {
     if (this.state === "ok") {
       return;
     }
-    this.state = "init";
-    this.conn._readToCompletion();
+    this.conn = await Deno.connect(this.options);
+    this.http2 = new Http2Conn(this.conn, "CLIENT");
 
-    await this.conn.sendPrelude();
-    await this.conn.sendSettings();
+    this.state = "init";
+    this.http2._readToCompletion().catch((err) => {
+      console.log(err);
+    });
+
+    await this.http2.sendPrelude();
+    await this.http2.sendSettings();
 
     this.state = "ok";
   }
 
   getAuthority() {
-    const { hostname, port } = this.#denoConn.remoteAddr as Deno.NetAddr;
+    const { hostname, port } = this.conn.remoteAddr as Deno.NetAddr;
     return `${hostname}:${port}`;
   }
 
@@ -58,9 +65,11 @@ export class GrpcClient {
   }
 
   async _callMethod<Req, Res>(name: string, req: Req): Promise<Res> {
+    await this.ensureConn();
+
     // TODO: throw error here on not found
     const method = this.svc.methods[name];
-    
+
     let serviceName = this.svc.fullName;
     if (serviceName.startsWith(".")) {
       serviceName = serviceName.replace(".", "");
@@ -72,9 +81,7 @@ export class GrpcClient {
       ":path": path,
     };
 
-    await this.ensureConn();
-
-    await this.conn.sendHeaders(headers);
+    await this.http2.sendHeaders(headers);
 
     const reqBytes = this.root
       .lookupType(method.requestType)
@@ -85,9 +92,9 @@ export class GrpcClient {
     dataBytes.set([0x00, 0x00, 0x00, 0x00, reqBytes.length]);
     dataBytes.set(reqBytes, 5);
 
-    await this.conn.endData(dataBytes);
+    await this.http2.endData(dataBytes);
 
-    const respBytes = await this.conn._waitForDataFrame();
+    const respBytes = await this.http2._waitForDataFrame();
 
     const res = (this.root
       .lookupType(method.responseType)
@@ -97,16 +104,13 @@ export class GrpcClient {
   }
 
   close() {
-    this.conn.close();
+    this.http2.close();
+    this.state = "?";
   }
 }
 
-export function getClient<T>(
-  conn: Deno.Conn,
-  _def: string | Root,
-  serviceName: string
-): GrpcClient & T {
-  const client = new GrpcClient(conn, _def, serviceName);
+export function getClient<T>(options: ClientInitOptions): GrpcClient & T {
+  const client = new GrpcClient(options);
 
   Object.keys(client.svc.methods).forEach((methodName) => {
     (client as any)[methodName] = (req: any) =>

@@ -16,7 +16,7 @@ export class GrpcService<T> {
     this.impl = impl;
   }
 
-  async handleUnary(conn: Deno.Conn) {
+  async handle(conn: Deno.Conn) {
     const _req = new Http2Conn(conn, "SERVER");
     _req._readToCompletion();
 

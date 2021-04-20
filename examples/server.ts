@@ -1,4 +1,4 @@
-import { GrpcService } from "../serve.ts";
+import { GrpcService } from "../server.ts";
 import { Greeter } from "./greeter.d.ts";
 
 const port = 15070;
@@ -19,5 +19,5 @@ const svc = new GrpcService<Greeter>(text, {
 
 console.log(`gonna listen on ${port} port`);
 for await (const conn of Deno.listen({ port })) {
-  await svc.handleUnary(conn);
+  await svc.handle(conn);
 }
