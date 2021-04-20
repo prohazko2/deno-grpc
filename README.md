@@ -34,3 +34,83 @@ You probably should wait for more mature and standard aligned implementation bea
 - [x] no bidirectional streams
 - [x] no load balancers
 - [x] no interceptors (revisit this later)
+
+
+## hello world
+
+### `greeter.proto`
+
+```proto
+syntax = "proto3";
+
+package prohazko;
+
+service Greeter {
+  rpc SayHello (HelloRequest) returns (HelloReply) {}
+}
+
+message HelloRequest {
+  string name = 1;
+}
+
+message HelloReply {
+  string message = 1;
+  string time = 2;
+}
+```
+
+### `greeter.d.ts` (generated (maybe))
+```ts
+export interface Greeter {
+  SayHello(request: HelloRequest): Promise<HelloReply>;
+}
+
+export interface HelloRequest {
+  name?: string;
+}
+
+export interface HelloReply {
+  message?: string;
+  time?: string;
+}
+```
+
+### `server.ts`
+
+```ts
+import { GrpcService } from "https://deno.land/x/grpc_basic@0.2.5/server.ts";
+import { Greeter } from "./greeter.d.ts";
+
+const port = 15070;
+const text = await Deno.readTextFile("./greeter.proto");
+
+const svc = new GrpcService<Greeter>(text, {
+  async SayHello({ name }) {
+    const message = `hello ${name || "world"}`;
+    return { message, time: new Date().toISOString() };
+  },
+});
+
+console.log(`gonna listen on ${port} port`);
+for await (const conn of Deno.listen({ port })) {
+  await svc.handle(conn);
+}
+```
+
+### `client.ts`
+
+```ts
+import { getClient } from "https://deno.land/x/grpc_basic@0.2.5/client.ts";
+import { Greeter } from "./greeter.d.ts";
+
+const client = getClient<Greeter>({
+  port: 15070,
+  root: await Deno.readTextFile("./greeter.proto"),
+  serviceName: "Greeter",
+});
+
+const resp = await client.SayHello({ name: "oleg" });
+console.log(resp);
+
+client.close();
+```
