@@ -56,7 +56,6 @@ message HelloRequest {
 
 message HelloReply {
   string message = 1;
-  string time = 2;
 }
 ```
 
@@ -72,7 +71,6 @@ export interface HelloRequest {
 
 export interface HelloReply {
   message?: string;
-  time?: string;
 }
 ```
 
@@ -95,9 +93,8 @@ const root = await Deno.readTextFile("./greeter.proto");
 
 const svc = new GrpcService<Greeter>(root, {
   async SayHello({ name }) {
-    const message = `hello ${name || "world"}`;
     await delay(50);
-    return { message, time: new Date().toISOString() };
+    return { message: `hello ${name || "world"}` };
   },
 });
 
