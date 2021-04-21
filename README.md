@@ -15,6 +15,7 @@ You probably should wait for more mature and standard aligned implementation bea
 - [ ] `server` server streams
 - [ ] `client` server streams
 - [ ] context deadlines
+- [ ] multiplex calls
 - [ ] calls metadata
 - [ ] logging
 
