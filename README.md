@@ -86,6 +86,7 @@ pb.RegisterGreeterServer(s, &server{})
 ```
 
 ```ts
+import { delay } from "https://deno.land/std@0.94.0/async/delay.ts";
 import { GrpcService } from "https://deno.land/x/grpc_basic@0.2.7/server.ts";
 import { Greeter } from "./greeter.d.ts";
 
@@ -95,6 +96,7 @@ const root = await Deno.readTextFile("./greeter.proto");
 const svc = new GrpcService<Greeter>(root, {
   async SayHello({ name }) {
     const message = `hello ${name || "world"}`;
+    await delay(50);
     return { message, time: new Date().toISOString() };
   },
 });
