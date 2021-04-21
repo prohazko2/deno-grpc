@@ -77,6 +77,13 @@ export interface HelloReply {
 
 ### `server.ts`
 
+⚠️   API will soon be changed to more Golang-ish
+
+```go
+	s := grpc.NewServer()
+	pb.RegisterGreeterServer(s, &server{})
+```
+
 ```ts
 import { GrpcService } from "https://deno.land/x/grpc_basic@0.2.7/server.ts";
 import { Greeter } from "./greeter.d.ts";
