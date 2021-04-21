@@ -59,7 +59,12 @@ message HelloReply {
 }
 ```
 
-### `greeter.d.ts` (generated (maybe))
+### `greeter.d.ts`
+
+```sh
+> deno run --allow-read https://deno.land/x/grpc_basic@0.2.9/gen/dts.ts ./greeter.proto > ./greeter.d.ts
+```
+
 ```ts
 export interface Greeter {
   SayHello(request: HelloRequest): Promise<HelloReply>;
