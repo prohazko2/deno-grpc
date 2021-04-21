@@ -80,8 +80,8 @@ export interface HelloReply {
 ⚠️   API will soon be changed to more Golang-ish
 
 ```go
-	s := grpc.NewServer()
-	pb.RegisterGreeterServer(s, &server{})
+s := grpc.NewServer()
+pb.RegisterGreeterServer(s, &server{})
 ```
 
 ```ts
