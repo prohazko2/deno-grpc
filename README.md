@@ -23,11 +23,6 @@
 - [ ] remove all deno/node compatibility (Buffer, stream.Transform, etc)
 - [ ] acquire more knowledge about http2 frames
 
-### maybe goals
-
-- [ ] `*.d.ts` client/service codegen
-- [ ] builtin retries
-
 ### non goals - gRPC bloat
 
 - [x] no TLS
