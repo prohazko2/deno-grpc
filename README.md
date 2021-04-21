@@ -116,8 +116,8 @@ const client = getClient<Greeter>({
   serviceName: "Greeter",
 });
 
-const resp = await client.SayHello({ name: "oleg" });
-console.log(resp);
+const { message } = await client.SayHello({ name: "oleg" });
+console.log(message);
 
 client.close();
 ```
