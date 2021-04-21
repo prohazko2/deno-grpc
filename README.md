@@ -19,10 +19,6 @@
 - [ ] calls metadata
 - [ ] logging
 
-### todo
-- [ ] remove all deno/node compatibility (Buffer, stream.Transform, etc)
-- [ ] acquire more knowledge about http2 frames
-
 ### non goals - gRPC bloat
 
 - [x] no TLS
@@ -31,6 +27,8 @@
 - [x] no load balancers (maybe simple helper for proxy lb)
 - [x] no interceptors (revisit this later)
 
+### todo
+- [ ] remove all deno/node compatibility (Buffer, stream.Transform, etc)
 
 ## hello world
 
