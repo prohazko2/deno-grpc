@@ -83,3 +83,10 @@ ${[...allOfKind<Type>(root, (s) => !!s.fields)]
 
   return dts.slice(1);
 }
+
+if (import.meta.main && Deno.args[0]) {
+  const url = new URL(Deno.args[0], `file://${Deno.cwd()}/`);
+  const txt = await Deno.readTextFile(url.pathname);
+
+  console.log(fromProto(txt));
+}
