@@ -33,7 +33,7 @@ You probably should wait for more mature and standard aligned implementation bea
 - [x] no TLS
 - [x] no client streams
 - [x] no bidirectional streams
-- [x] no load balancers
+- [x] no load balancers (maybe simple helper for proxy lb)
 - [x] no interceptors (revisit this later)
 
 
