@@ -1,5 +1,7 @@
 import type {
   Root,
+  Type,
+  Field,
   Service,
   Message,
   Method,
@@ -10,7 +12,7 @@ import protobuf from "./vendor/protobuf@v6.10.2.js";
 
 const lib = protobuf.exports as any;
 
-export { Root, Service, Message, Method, ReflectionObject };
+export { Root, Type, Field, Service, Message, Method, ReflectionObject };
 
 export function parse(proto: string): { package: string; root: Root } {
   return lib.parse(proto);
