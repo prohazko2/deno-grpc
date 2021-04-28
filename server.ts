@@ -50,16 +50,19 @@ export class GrpcServer {
     return null;
   }
 
-  async handle(conn: Deno.Conn) {
-    const _req = new Http2Conn(conn, "SERVER");
-    _req._readToCompletion();
+  async handle(_conn: Deno.Conn) {
+    const conn = new Http2Conn(_conn, "SERVER");
+    conn._readToCompletion().catch((err) => {
+      console.error(err);
+      conn.close();
+    });
 
-    await _req.sendSettings();
-    await _req.sendSettings({ ACK: true });
+    await conn.sendSettings();
+    await conn.sendSettings({ ACK: true });
 
-    const data = await _req._waitForDataFrame();
+    const data = await conn._waitForDataFrame();
 
-    let [serviceName, methodName] = _req.headers[":path"]
+    let [serviceName, methodName] = conn.headers[":path"]
       .split("/")
       .filter((x) => !!x);
 
@@ -71,7 +74,7 @@ export class GrpcServer {
     if (!impl) {
       throw error(
         Status.UNIMPLEMENTED,
-        `Method "${_req.headers[":path"]}" not implemented`
+        `Method "${conn.headers[":path"]}" not implemented`
       );
     }
     const { responseType, requestType, handler } = impl;
@@ -82,7 +85,7 @@ export class GrpcServer {
     try {
       result = await handler(req);
     } catch (err) {
-      return this.sendError(_req, err);
+      return this.sendError(conn, err);
     }
 
     const res = responseType.encode(result || {}).finish();
@@ -91,16 +94,16 @@ export class GrpcServer {
     buf.set([0x00, 0x00, 0x00, 0x00, res.length]);
     buf.set(res, 5);
 
-    await _req.sendHeaders({
+    await conn.sendHeaders({
       ":status": "200",
       "grpc-accept-encoding": "identity",
       "grpc-encoding": "identity",
       "content-type": "application/grpc+proto",
     });
 
-    await _req.sendData(buf);
+    await conn.sendData(buf);
 
-    await _req.sendTrailers({
+    await conn.sendTrailers({
       "grpc-status": "0",
       "grpc-message": "OK",
     });
