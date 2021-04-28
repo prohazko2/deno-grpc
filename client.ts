@@ -1,4 +1,3 @@
-import { hexdump } from "https://deno.land/x/prohazko@1.3.3/hex.ts";
 import { parse, Root, Service } from "./proto.ts";
 
 import { Http2Conn } from "./http2/conn.ts";
@@ -10,25 +9,29 @@ export type ClientInitOptions = Deno.ConnectOptions & {
   serviceName: string;
 };
 
-export class GrpcClient {
+class CallUnary {
+  state = "?";
+
   conn: Deno.Conn = null!;
   http2: Http2Conn = null!;
 
-  serviceName: string;
-  root: Root;
-  svc: Service;
+  constructor(private options: ClientInitOptions) {}
 
-  state = "?";
+  getAuthority() {
+    const { hostname, port } = this.conn.remoteAddr as Deno.NetAddr;
+    return `${hostname}:${port}`;
+  }
 
-  constructor(private options: ClientInitOptions) {
-    const { root, serviceName } = options;
-
-    this.root = root as Root;
-    if (typeof root === "string") {
-      this.root = parse(root).root;
-    }
-    this.serviceName = serviceName;
-    this.svc = this.root.lookupService(serviceName);
+  getDefaultHeaders() {
+    return {
+      "content-type": "application/grpc",
+      "accept-encoding": "identity",
+      "grpc-accept-encoding": "identity",
+      te: "trailers",
+      ":scheme": "http",
+      ":method": "POST",
+      ":authority": this.getAuthority(),
+    };
   }
 
   async ensureConn() {
@@ -49,25 +52,31 @@ export class GrpcClient {
     this.state = "ok";
   }
 
-  getAuthority() {
-    const { hostname, port } = this.conn.remoteAddr as Deno.NetAddr;
-    return `${hostname}:${port}`;
+  close() {
+    this.http2.close();
+    this.state = "?";
+  }
+}
+
+export class GrpcClient {
+  serviceName: string;
+  root: Root;
+  svc: Service;
+
+  constructor(private options: ClientInitOptions) {
+    const { root, serviceName } = options;
+
+    this.root = root as Root;
+    if (typeof root === "string") {
+      this.root = parse(root).root;
+    }
+    this.serviceName = serviceName;
+    this.svc = this.root.lookupService(serviceName);
   }
 
-  getDefaultHeaders() {
-    return {
-      "content-type": "application/grpc",
-      "accept-encoding": "identity",
-      "grpc-accept-encoding": "identity",
-      te: "trailers",
-      ":scheme": "http",
-      ":method": "POST",
-      ":authority": this.getAuthority(),
-    };
-  }
-
-  async _callMethod<Req, Res>(name: string, req: Req): Promise<Res> {
-    await this.ensureConn();
+  async _callUnary<Req, Res>(name: string, req: Req): Promise<Res> {
+    const call = new CallUnary(this.options);
+    await call.ensureConn();
 
     // TODO: throw error here on not found
     const method = this.svc.methods[name];
@@ -79,11 +88,11 @@ export class GrpcClient {
     const path = `/${serviceName}/${method.name}`;
 
     const headers = {
-      ...this.getDefaultHeaders(),
+      ...call.getDefaultHeaders(),
       ":path": path,
     };
 
-    await this.http2.sendHeaders(headers);
+    await call.http2.sendHeaders(headers);
 
     const reqBytes = this.root
       .lookupType(method.requestType)
@@ -94,14 +103,14 @@ export class GrpcClient {
     dataBytes.set([0x00, 0x00, 0x00, 0x00, reqBytes.length]);
     dataBytes.set(reqBytes, 5);
 
-    await this.http2.endData(dataBytes);
+    await call.http2.endData(dataBytes);
 
     const resp = await Promise.race([
-      this.http2._waitForTrailers(),
-      this.http2._waitForDataFrame(),
+      call.http2._waitForTrailers(),
+      call.http2._waitForDataFrame(),
     ]);
 
-    this.close();
+    call.close();
 
     if (resp instanceof Uint8Array) {
       const res = (this.root
@@ -124,20 +133,14 @@ export class GrpcClient {
 
     throw err;
   }
-
-  close() {
-    this.http2.close();
-    this.state = "?";
-  }
 }
 
 export function getClient<T>(options: ClientInitOptions): GrpcClient & T {
-  const client = new GrpcClient(options);
+  const client = new GrpcClient(options) as any;
 
-  Object.keys(client.svc.methods).forEach((methodName) => {
-    (client as any)[methodName] = (req: unknown) =>
-      client._callMethod(methodName, req);
-  });
+  for (const methodName of Object.keys(client.svc.methods)) {
+    client[methodName] = (req: unknown) => client._callUnary(methodName, req);
+  }
 
   return client as GrpcClient & T;
 }
