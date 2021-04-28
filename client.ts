@@ -112,17 +112,15 @@ export class GrpcClient {
     }
 
     let textStatus = Status[+resp["grpc-status"]];
-    const meesage = decodeURIComponent(resp["grpc-message"]);
+    const message = decodeURIComponent(resp["grpc-message"]);
 
     if (!textStatus) {
       textStatus = Status[Status.UNKNOWN];
     }
 
-    const err = new GrpcError(`${textStatus}: ${meesage}`);
+    const err = new GrpcError(`${textStatus}: ${message}`);
     err.grpcCode = +resp["grpc-status"];
-    err.grpcMessage = meesage;
-
-    //this.close();
+    err.grpcMessage = message;
 
     throw err;
   }

@@ -1,19 +1,53 @@
-import { hexdump } from "https://deno.land/x/prohazko@1.3.3/hex.ts";
 import { Root, parse } from "./proto.ts";
 
 import { Http2Conn } from "./http2/conn.ts";
+import { Status, error } from "./error.ts";
 
-export class GrpcService<T> {
-  def: Root;
+export class GrpcService<T = unknown> {
+  root: Root;
   impl: T;
 
-  constructor(_def: string | Root, impl: T) {
-    this.def = _def as Root;
-    if (typeof _def === "string") {
-      this.def = parse(_def).root;
+  constructor(_root: string | Root, impl: T) {
+    this.root = _root as Root;
+    if (typeof _root === "string") {
+      this.root = parse(_root).root;
     }
-
     this.impl = impl;
+  }
+}
+
+export class GrpcServer {
+  _services: GrpcService[] = [];
+
+  addService<T>(_root: string | Root, impl: T) {
+    const svc = new GrpcService(_root, impl);
+    this._services.push(svc);
+    return svc;
+  }
+
+  findImpl(serviceName: string, methodName: string) {
+    for (const { impl, root } of this._services) {
+      const handler = (impl as any)[methodName] as Function;
+      if (!handler) {
+        continue;
+      }
+
+      try {
+        const svc = root.lookupService(serviceName);
+        const method = svc.methods[methodName];
+
+        return {
+          root,
+          svc,
+          method,
+          handler,
+          streamed: !!method.responseStream,
+          requestType: root.lookupType(method.requestType),
+          responseType: root.lookupType(method.responseType),
+        };
+      } catch {}
+    }
+    return null;
   }
 
   async handle(conn: Deno.Conn) {
@@ -33,23 +67,29 @@ export class GrpcService<T> {
       serviceName = serviceName.split(".").reverse()[0];
     }
 
-    const service = this.def.lookupService(serviceName);
-    const method = service.methods[methodName];
+    const impl = this.findImpl(serviceName, methodName);
+    if (!impl) {
+      throw error(
+        Status.UNIMPLEMENTED,
+        `Method "${_req.headers[":path"]}" not implemented`
+      );
+    }
+    const { responseType, requestType, handler } = impl;
 
-    const Req = this.def.lookupType(method.requestType);
-    const Res = this.def.lookupType(method.responseType);
+    const req = requestType.decode(data.slice(5));
 
-    const req = Req.decode(data.slice(5)) as any;
-    console.log(`body: `, req);
+    let result: any = {};
+    try {
+      result = await handler(req);
+    } catch (err) {
+      return this.sendError(_req, err);
+    }
 
-    const result = await (this.impl as any)[methodName](req);
+    const res = responseType.encode(result || {}).finish();
 
-    const res = Res.encode(result).finish();
-
-    const out = new Uint8Array(5 + res.length);
-    out.set([0x00, 0x00, 0x00, 0x00, res.length]);
-    out.set(res, 5);
-    //console.log(hexdump(out));
+    const buf = new Uint8Array(5 + res.length);
+    buf.set([0x00, 0x00, 0x00, 0x00, res.length]);
+    buf.set(res, 5);
 
     await _req.sendHeaders({
       ":status": "200",
@@ -58,11 +98,20 @@ export class GrpcService<T> {
       "content-type": "application/grpc+proto",
     });
 
-    await _req.sendData(out);
+    await _req.sendData(buf);
 
     await _req.sendTrailers({
       "grpc-status": "0",
       "grpc-message": "OK",
+    });
+  }
+
+  sendError(_req: Http2Conn, _err: Error) {
+    const err = error(Status.UNKNOWN, _err.toString());
+
+    return _req.sendTrailers({
+      "grpc-status": err.grpcCode.toString(),
+      "grpc-message": err.grpcMessage,
     });
   }
 }

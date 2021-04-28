@@ -18,6 +18,14 @@ export enum Status {
   UNAUTHENTICATED,
 }
 
+export function error(code: Status, message = "") {
+  const status = Status[code];
+  const err = new GrpcError(`${status}: ${message}`);
+  err.grpcCode = +code;
+  err.grpcMessage = message;
+  return err;
+}
+
 export class GrpcError extends Error {
   grpcCode = 0;
   grpcMessage = "";

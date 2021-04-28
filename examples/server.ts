@@ -1,10 +1,12 @@
-import { GrpcService } from "../server.ts";
+import { GrpcServer } from "../server.ts";
 import { Greeter } from "./greeter.d.ts";
 
 const port = 15070;
 const text = await Deno.readTextFile("./examples/greeter.proto"); // TODO: resolve path from `import.meta.url`
 
-const svc = new GrpcService<Greeter>(text, {
+const server = new GrpcServer();
+
+server.addService<Greeter>(text, {
   async SayHello({ name }) {
     const message = `hello ${name || "stranger"}`;
     return { message, time: new Date().toISOString() };
@@ -19,5 +21,5 @@ const svc = new GrpcService<Greeter>(text, {
 
 console.log(`gonna listen on ${port} port`);
 for await (const conn of Deno.listen({ port })) {
-  await svc.handle(conn);
+  server.handle(conn);
 }
