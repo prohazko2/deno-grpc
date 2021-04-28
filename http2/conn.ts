@@ -159,8 +159,12 @@ export class Http2Conn {
   }
 
   close() {
-    // TODO: send some graceful close http frame here
-    this.conn.close();
+    try {
+      // TODO: send some graceful close http frame here
+      this.conn.close();
+    } catch (err) {
+      // TODO: log err
+    }
   }
 
   async sendFrame(frame: any) {

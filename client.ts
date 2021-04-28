@@ -101,6 +101,8 @@ export class GrpcClient {
       this.http2._waitForDataFrame(),
     ]);
 
+    this.close();
+
     if (resp instanceof Uint8Array) {
       const res = (this.root
         .lookupType(method.responseType)
@@ -119,6 +121,8 @@ export class GrpcClient {
     const err = new GrpcError(`${textStatus}: ${meesage}`);
     err.grpcCode = +resp["grpc-status"];
     err.grpcMessage = meesage;
+
+    //this.close();
 
     throw err;
   }
