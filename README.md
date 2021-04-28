@@ -55,7 +55,7 @@ message HelloReply {
 ### `greeter.d.ts`
 
 ```sh
-$ deno run --allow-read https://deno.land/x/grpc_basic@0.3.1/gen/dts.ts ./greeter.proto > ./greeter.d.ts
+$ deno run --allow-read https://deno.land/x/grpc_basic@0.3.2/gen/dts.ts ./greeter.proto > ./greeter.d.ts
 ```
 
 ```ts
@@ -75,7 +75,7 @@ export interface HelloReply {
 ### `server.ts`
 
 ```ts
-import { GrpcServer } from "https://deno.land/x/grpc_basic@0.3.1/server.ts";
+import { GrpcServer } from "https://deno.land/x/grpc_basic@0.3.2/server.ts";
 import { Greeter } from "./greeter.d.ts";
 
 const port = 15070;
@@ -86,7 +86,7 @@ const server = new GrpcServer();
 server.addService<Greeter>(root, {
   async SayHello({ name }) {
     const message = `hello ${name || "stranger"}`;
-    return { message, time: new Date().toISOString() };
+    return { message };
   }
 });
 
@@ -99,11 +99,11 @@ for await (const conn of Deno.listen({ port })) {
 ### `client.ts`
 
 ```ts
-import { getClient } from "https://deno.land/x/grpc_basic@0.3.1/client.ts";
+import { getClient } from "https://deno.land/x/grpc_basic@0.3.2/client.ts";
 import { Greeter } from "./greeter.d.ts";
 
 const port = 15070;
-const root = await Deno.readTextFile("./examples/greeter.proto");
+const root = await Deno.readTextFile("./greeter.proto");
 
 const client = getClient<Greeter>({ port, root, serviceName: "Greeter" });
 

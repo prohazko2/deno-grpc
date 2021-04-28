@@ -169,7 +169,12 @@ export class Http2Conn {
 
   async sendFrame(frame: any) {
     for (const b of this.#s.encode(frame)) {
-      await this.conn.write(b);
+      try {
+        await this.conn.write(b);
+      } catch (err) {
+        console.error(err);
+        console.log(frame);
+      }
     }
   }
 }
