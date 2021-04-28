@@ -2,11 +2,11 @@ import { GrpcServer } from "../server.ts";
 import { Greeter } from "./greeter.d.ts";
 
 const port = 15070;
-const text = await Deno.readTextFile("./examples/greeter.proto"); // TODO: resolve path from `import.meta.url`
+const root = await Deno.readTextFile("./examples/greeter.proto");
 
 const server = new GrpcServer();
 
-server.addService<Greeter>(text, {
+server.addService<Greeter>(root, {
   async SayHello({ name }) {
     const message = `hello ${name || "stranger"}`;
     return { message, time: new Date().toISOString() };

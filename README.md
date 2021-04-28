@@ -55,7 +55,7 @@ message HelloReply {
 ### `greeter.d.ts`
 
 ```sh
-$ deno run --allow-read https://deno.land/x/grpc_basic@0.2.9/gen/dts.ts ./greeter.proto > ./greeter.d.ts
+$ deno run --allow-read https://deno.land/x/grpc_basic@0.3.1/gen/dts.ts ./greeter.proto > ./greeter.d.ts
 ```
 
 ```ts
@@ -74,48 +74,39 @@ export interface HelloReply {
 
 ### `server.ts`
 
-⚠️   API will soon be changed to more Golang-ish
-
-```go
-s := grpc.NewServer()
-pb.RegisterGreeterServer(s, &server{})
-```
-
 ```ts
-import { delay } from "https://deno.land/std@0.94.0/async/delay.ts";
-import { GrpcService } from "https://deno.land/x/grpc_basic@0.2.7/server.ts";
+import { GrpcServer } from "https://deno.land/x/grpc_basic@0.3.1/server.ts";
 import { Greeter } from "./greeter.d.ts";
 
 const port = 15070;
 const root = await Deno.readTextFile("./greeter.proto");
 
-const svc = new GrpcService<Greeter>(root, {
+const server = new GrpcServer();
+
+server.addService<Greeter>(root, {
   async SayHello({ name }) {
-    await delay(50);
-    return { message: `hello ${name || "world"}` };
-  },
+    const message = `hello ${name || "stranger"}`;
+    return { message, time: new Date().toISOString() };
+  }
 });
 
 console.log(`gonna listen on ${port} port`);
 for await (const conn of Deno.listen({ port })) {
-  await svc.handle(conn);
+  server.handle(conn);
 }
 ```
 
 ### `client.ts`
 
 ```ts
-import { getClient } from "https://deno.land/x/grpc_basic@0.2.7/client.ts";
+import { getClient } from "https://deno.land/x/grpc_basic@0.3.1/client.ts";
 import { Greeter } from "./greeter.d.ts";
 
-const client = getClient<Greeter>({
-  port: 15070,
-  root: await Deno.readTextFile("./greeter.proto"),
-  serviceName: "Greeter",
-});
+const port = 15070;
+const root = await Deno.readTextFile("./examples/greeter.proto");
 
-const { message } = await client.SayHello({ name: "oleg" });
-console.log(message);
+const client = getClient<Greeter>({ port, root, serviceName: "Greeter" });
 
-client.close();
+const resp = await client.SayHello({ name: "oleg" });
+console.log(resp);
 ```
