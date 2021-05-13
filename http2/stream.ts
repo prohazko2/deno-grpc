@@ -4,7 +4,7 @@ import { Duplex } from "https://deno.land/std@0.93.0/node/stream.ts";
 import { Buffer } from "https://deno.land/std@0.93.0/node/buffer.ts";
 
 import type { Frame } from "./frames.ts";
-import type { Connection } from "./_conn.ts";
+import type { Connection } from "./conn.ts";
 
 const assert = _assert as Function;
 
@@ -51,7 +51,7 @@ export { Stream };
 // Constructor
 // -----------
 
-const logData = false;
+const logData = true;
 const noop = () => {};
 const consoleLogger = () => ({
   debug: (...args: any[]) => (logData ? console.log(...args) : noop()),
@@ -713,9 +713,9 @@ class Stream extends Duplex {
   }
 }
 
-Stream.prototype = Object.create(Duplex.prototype, {
-  constructor: { value: Stream },
-});
+// Stream.prototype = Object.create(Duplex.prototype, {
+//   constructor: { value: Stream },
+// });
 
 // Managing the stream
 // -------------------

@@ -59,7 +59,7 @@ export { Flow };
 // control window size of 65535 bytes.
 const INITIAL_WINDOW_SIZE = 65535;
 
-const logData = false;
+const logData = true;
 const noop = () => {};
 const consoleLogger = () => ({
   debug: (...args: any[]) => (logData ? console.log(...args) : noop()),
@@ -251,6 +251,7 @@ class Flow extends Duplex {
   // `_parentPush` pushes the given `frame` into the output queue
   _parentPush(frame: Frame) {
     this._log.trace({ frame }, "Pushing frame into the output queue");
+    //console.trace();
 
     if (frame && frame.type === "DATA" && this._window !== Infinity) {
       this._log.trace(
@@ -294,6 +295,7 @@ class Flow extends Duplex {
 
   // Push `frame` into the flow control queue, or if it's empty, then directly into the output queue
   push(frame: Frame): boolean {
+    console.log("x . push", frame);
     if (frame === null) {
       this._log.debug("Enqueueing outgoing End Of Stream");
     } else {
@@ -367,9 +369,9 @@ class Flow extends Duplex {
   }
 }
 
-Flow.prototype = Object.create(Duplex.prototype, {
-  constructor: { value: Flow },
-});
+// Flow.prototype = Object.create(Duplex.prototype, {
+//   constructor: { value: Flow },
+// });
 
 const MAX_PAYLOAD_SIZE = 4096; // Must not be greater than MAX_HTTP_PAYLOAD_SIZE which is 16383
 
