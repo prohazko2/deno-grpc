@@ -47,6 +47,7 @@ export type Frame = {
   headers: Record<string, string>;
 
   stream: number;
+  priority: number;
   last_stream: number;
   promised_stream: number;
 
