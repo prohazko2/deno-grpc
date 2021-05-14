@@ -12,24 +12,12 @@ const conn = await Deno.connect({
 
 const http2 = new Http2Conn(conn, "CLIENT");
 
-
-
 const frames: Frame[] = [];
 
 http2.c.on("data", (x) => {
   frames.push(x);
 
-  // if (sx && x.type === "SETTINGS") {
-  //   return;
-  // }
-
-  // if (!sx && x.type === "SETTINGS") {
-  //   sx = true;
-  // }
-
   console.log("http2 frame", JSON.stringify(x));
-
-  //http2.sendFrame(x);
 });
 
 async function drain() {
@@ -47,14 +35,6 @@ async function drain() {
 }
 
 await http2.sendPrelude();
-
-// http2.__readToCompletion().catch((err) => {
-//   console.log(err);
-// });
-
-//await http2.sendSettings();
-
-//await delay(10);
 
 const headers = {
   "content-type": "application/grpc",
@@ -117,5 +97,3 @@ for (;;) {
 
   await drain();
 }
-
-//console.log("s.id", s.id);
