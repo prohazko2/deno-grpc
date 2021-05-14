@@ -247,7 +247,10 @@ class Stream extends Duplex {
   _writeUpstream(frame: Frame) {
     this._log.debug({ frame }, "Receiving frame");
 
-    const moreNeeded = (Flow.prototype.write as any).call(this.upstream, frame);
+    console.log('Flow.prototype.write', Flow.prototype);
+
+    //const moreNeeded = (Flow.prototype.write as any).call(this.upstream, frame);
+    let moreNeeded = false;
 
     // * Transition to a new state if that's the effect of receiving the frame
     this._transition(false, frame);

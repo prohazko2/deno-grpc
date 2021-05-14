@@ -295,7 +295,6 @@ class Flow extends Duplex {
 
   // Push `frame` into the flow control queue, or if it's empty, then directly into the output queue
   push(frame: Frame): boolean {
-    console.log("x . push", frame);
     if (frame === null) {
       this._log.debug("Enqueueing outgoing End Of Stream");
     } else {

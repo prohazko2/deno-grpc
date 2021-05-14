@@ -204,7 +204,7 @@ class Connection extends Flow {
     assert(!(id in this._streamIds));
 
     // * adding to `this._streamIds`
-    this._log.trace({ s: stream, stream_id: id }, "Allocating ID for stream.");
+    this._log.trace({ stream_id: id }, "Allocating ID for stream.");
     this._streamIds[id] = stream;
     stream.id = id;
     this.emit("new_stream", stream, id);
@@ -341,7 +341,7 @@ class Connection extends Flow {
             frame.promised_stream = this._allocateId(frame.promised_stream);
           }
 
-          this._log.trace({ s: stream, frame }, "Forwarding outgoing frame");
+          this._log.trace({  frame }, "Forwarding outgoing frame");
           moreNeeded = this.push(frame);
           this._changeStreamCount(frame.count_change);
 
