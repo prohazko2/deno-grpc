@@ -13,8 +13,7 @@ type Headers = Record<string, string>;
 export class Http2Conn {
   d: Deserializer = null!;
   c: Connection = null!;
-
-  #s = new Serializer();
+  s = new Serializer();
 
   #dataFrameResolvers: ((f: Uint8Array) => void)[] = [];
   #trailersResolvers: ((f: Headers) => void)[] = [];

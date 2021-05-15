@@ -1,24 +1,56 @@
 import { parse, Root, Service } from "./proto.ts";
 
-import { Http2Conn } from "./http2/conn.ts";
+import { Connection } from "./http2/conn.ts";
 
 import { Status, GrpcError } from "./error.ts";
+import { Serializer, Deserializer, Frame } from "./http2/frames.ts";
+import { Compressor, Decompressor } from "./http2/hpack.ts";
+
+import { hexdump } from "https://deno.land/x/prohazko@1.3.4/hex.ts";
+
+const PRELUDE = new TextEncoder().encode("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
 
 export type ClientInitOptions = Deno.ConnectOptions & {
   root: string | Root;
   serviceName: string;
 };
 
-class CallUnary {
-  state = "?";
+export class GrpcClient {
+  serviceName: string;
+  root: Root;
+  svc: Service;
+
+  s: Serializer = null!;
+  d: Deserializer = null!;
+  c: Connection = null!;
 
   conn: Deno.Conn = null!;
-  http2: Http2Conn = null!;
 
-  constructor(private options: ClientInitOptions) {}
+  frames: Frame[] = [];
+
+  constructor(private options: ClientInitOptions) {
+    const { root, serviceName } = options;
+
+    this.root = root as Root;
+    if (typeof root === "string") {
+      this.root = parse(root).root;
+    }
+
+    this.serviceName = serviceName;
+    this.svc = this.root.lookupService(serviceName);
+
+    this.s = new Serializer();
+    this.d = new Deserializer("CLIENT");
+    this.c = new Connection(1, {});
+
+    this.c.on("data", (f) => {
+      console.log("http2 frame", JSON.stringify(f));
+      this.frames.push(f);
+    });
+  }
 
   getAuthority() {
-    const { hostname, port } = this.conn.remoteAddr as Deno.NetAddr;
+    const { hostname, port } = this.conn!.remoteAddr as Deno.NetAddr;
     return `${hostname}:${port}`;
   }
 
@@ -34,49 +66,89 @@ class CallUnary {
     };
   }
 
-  async ensureConn() {
-    if (this.state === "ok") {
+  async drain() {
+    console.log(`draining with frames: ${this.frames.length}`);
+
+    while (this.frames.length) {
+      const f = this.frames.shift();
+      if (!f) {
+        break;
+      }
+      await this.sendFrame(f);
+    }
+
+    console.log("done draining");
+  }
+
+  sendPrelude() {
+    return this.conn.write(PRELUDE);
+  }
+
+  async sendFrame(frame: Frame) {
+    console.log("sendFrame", frame);
+
+    for (const b of this.s.encode(frame)) {
+      if (!b.length) {
+        //continue;
+      }
+
+      try {
+        //console.log("   send:");
+        //console.log(hexdump(b));
+        await this.conn!.write(b);
+      } catch (err) {
+        console.error("errrrrrr", err);
+        console.log(frame);
+      }
+    }
+  }
+
+  async ensureConnection() {
+    if (this.conn) {
       return;
     }
     this.conn = await Deno.connect(this.options);
-    this.http2 = new Http2Conn(this.conn, "CLIENT");
-
-    this.state = "init";
-    this.http2._readToCompletion().catch((err) => {
-      console.log(err);
-    });
-
-    await this.http2.sendPrelude();
-    await this.http2.sendSettings();
-
-    this.state = "ok";
+    await this.sendPrelude();
   }
 
-  close() {
-    this.http2.close();
-    this.state = "?";
-  }
-}
+  async *readFrames() {
+    for (;;) {
+      let b = new Uint8Array(4096);
+      let n: number | null = null;
 
-export class GrpcClient {
-  serviceName: string;
-  root: Root;
-  svc: Service;
+      try {
+        n = await this.conn.read(b);
+      } catch (err) {
+        console.error("__readToCompletion err", err);
+      }
 
-  constructor(private options: ClientInitOptions) {
-    const { root, serviceName } = options;
+      if (!n) {
+        console.log("no resp");
+        Deno.exit(0);
+      }
 
-    this.root = root as Root;
-    if (typeof root === "string") {
-      this.root = parse(root).root;
+      b = b.slice(0, n);
+
+      console.log("got", hexdump(b));
+
+      for (const f of this.d.decode(b)) {
+        console.log("gotFrame", f);
+
+        if (f.type === "HEADERS") {
+          f.headers = new Decompressor("REQUEST").decompress(f.data);
+        }
+
+        yield f;
+
+        this.c._receive(f, () => {});
+      }
+
+      await this.drain();
     }
-    this.serviceName = serviceName;
-    this.svc = this.root.lookupService(serviceName);
   }
 
   async _callUnary<Req, Res>(name: string, req: Req): Promise<Res> {
-    const call = new CallUnary(this.options);
-    await call.ensureConn();
+    await this.ensureConnection();
 
     // TODO: throw error here on not found
     const method = this.svc.methods[name];
@@ -88,11 +160,19 @@ export class GrpcClient {
     const path = `/${serviceName}/${method.name}`;
 
     const headers = {
-      ...call.getDefaultHeaders(),
+      ...this.getDefaultHeaders(),
       ":path": path,
     };
 
-    await call.http2.sendHeaders(headers);
+    const stream = this.c.createStream();
+
+    stream._pushUpstream({
+      type: "HEADERS",
+      flags: { END_HEADERS: true },
+      stream: stream.id,
+      data: new Compressor("RESPONSE").compress(headers),
+      headers,
+    } as any);
 
     const reqBytes = this.root
       .lookupType(method.requestType)
@@ -103,35 +183,41 @@ export class GrpcClient {
     dataBytes.set([0x00, 0x00, 0x00, 0x00, reqBytes.length]);
     dataBytes.set(reqBytes, 5);
 
-    await call.http2.endData(dataBytes);
+    stream._pushUpstream({
+      type: "DATA",
+      flags: { END_STREAM: true },
+      data: dataBytes,
+      stream: stream.id,
+    } as any);
 
-    const resp = await Promise.race([
-      call.http2._waitForTrailers(),
-      call.http2._waitForDataFrame(),
-    ]);
+    await this.drain();
 
-    call.close();
+    for await (const frame of this.readFrames()) {
+      console.log("xxx frame", frame);
 
-    if (resp instanceof Uint8Array) {
-      const res = (this.root
-        .lookupType(method.responseType)
-        .decode(resp.slice(5)) as unknown) as Res;
+      if (frame.type === "DATA") {
+        const res = this.root
+          .lookupType(method.responseType)
+          .decode(frame.data.slice(5)) as unknown as Res;
 
-      return res;
+        return res;
+      }
+
+      if (frame.type === "HEADERS" && frame.flags.END_STREAM) {
+        let textStatus = Status[+frame.headers["grpc-status"]];
+        const message = decodeURIComponent(frame.headers["grpc-message"]);
+        if (!textStatus) {
+          textStatus = Status[Status.UNKNOWN];
+        }
+        const err = new GrpcError(`${textStatus}: ${message}`);
+        err.grpcCode = +frame.headers["grpc-status"];
+        err.grpcMessage = message;
+
+        throw err;
+      }
     }
 
-    let textStatus = Status[+resp["grpc-status"]];
-    const message = decodeURIComponent(resp["grpc-message"]);
-
-    if (!textStatus) {
-      textStatus = Status[Status.UNKNOWN];
-    }
-
-    const err = new GrpcError(`${textStatus}: ${message}`);
-    err.grpcCode = +resp["grpc-status"];
-    err.grpcMessage = message;
-
-    throw err;
+    throw new Error("not expected");
   }
 }
 
