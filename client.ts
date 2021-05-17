@@ -6,9 +6,6 @@ import { Status, GrpcError } from "./error.ts";
 import { Serializer, Deserializer, Frame } from "./http2/frames.ts";
 import { Compressor, Decompressor } from "./http2/hpack.ts";
 
-import { delay } from "https://deno.land/std@0.95.0/async/delay.ts";
-import { hexdump } from "https://deno.land/x/prohazko@1.3.4/hex.ts";
-
 import { Stream } from "./http2/stream.ts";
 
 const PRELUDE = new TextEncoder().encode("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
@@ -46,6 +43,7 @@ export class GrpcClient {
   flushing = false;
 
   connecting?: Promise<void>;
+  closed = false;
 
   constructor(private options: ClientInitOptions) {
     const { root, serviceName } = options;
@@ -77,7 +75,7 @@ export class GrpcClient {
   }
 
   getAuthority() {
-    const { hostname, port } = this.conn!.remoteAddr as Deno.NetAddr;
+    const { hostname, port } = this.conn.remoteAddr as Deno.NetAddr;
     return `${hostname}:${port}`;
   }
 
@@ -121,7 +119,7 @@ export class GrpcClient {
       }
 
       try {
-        await this.conn!.write(b);
+        await this.conn.write(b);
       } catch (err) {
         console.error("errrrrrr", err);
         console.log(frame);
@@ -156,12 +154,13 @@ export class GrpcClient {
       try {
         n = await this.conn.read(b);
       } catch (err) {
-        console.error("__readToCompletion err", err);
+        if (!this.closed) {
+          console.error("readFrames err", err);
+        }
       }
 
       if (!n) {
-        console.log("no resp");
-        Deno.exit(0);
+        return;
       }
 
       b = b.slice(0, n);
@@ -174,6 +173,12 @@ export class GrpcClient {
         this.c._receive(f, () => {});
       }
     }
+  }
+
+  close() {
+    this.conn.close();
+    this.conn = null!;
+    this.closed = true;
   }
 
   async _callUnary<Req, Res>(name: string, req: Req): Promise<Res> {
