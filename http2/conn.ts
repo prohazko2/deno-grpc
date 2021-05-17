@@ -176,7 +176,6 @@ class Connection extends Flow {
 
   // Allocating an ID to a stream
   _allocateId(stream: Stream, id?: number) {
-    console.log('_allocateId', id);
     // * initiated stream without definite ID
     if (id === undefined) {
       id = this._nextStreamId!;

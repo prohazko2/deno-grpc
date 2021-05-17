@@ -51,7 +51,7 @@ export { Stream };
 // Constructor
 // -----------
 
-const logData = true;
+const logData = false;
 const noop = () => {};
 const consoleLogger = () => ({
   debug: (...args: any[]) => (logData ? console.log(...args) : noop()),
@@ -151,6 +151,14 @@ class Stream extends Duplex {
     this.emit("headers", headers);
   }
 
+  _onTrailers(frame: Frame) {
+    this.emit("trailers", frame);
+  }
+
+  _onData(frame: Frame) {
+    this.emit("data_frame", frame);
+  }
+
   priority(priority: number, peer: boolean) {
     if ((peer && this._letPeerPrioritize) || !peer) {
       if (!peer) {
@@ -231,7 +239,8 @@ class Stream extends Duplex {
     this.upstream._log = this._log;
     this.upstream._send = this._send.bind(this);
     this.upstream._receive = this._receive.bind(this);
-    this.upstream.write = this._writeUpstream.bind(this);
+    (this.upstream as any)._writePrev = this.upstream.write;
+    this.upstream.write = this._writeUpstream.bind(this) as any;
     this.upstream.on("error", this.emit.bind(this, "error"));
 
     this.on("finish", this._finishing);
@@ -247,10 +256,10 @@ class Stream extends Duplex {
   _writeUpstream(frame: Frame) {
     this._log.debug({ frame }, "Receiving frame");
 
-    console.log('Flow.prototype.write', Flow.prototype);
-
-    //const moreNeeded = (Flow.prototype.write as any).call(this.upstream, frame);
-    let moreNeeded = false;
+    let moreNeeded = (this.upstream as any)._writePrev.call(
+      this.upstream,
+      frame
+    );
 
     // * Transition to a new state if that's the effect of receiving the frame
     this._transition(false, frame);
@@ -262,8 +271,13 @@ class Stream extends Duplex {
       }
       this._processedHeaders = true;
       this._onHeaders(frame);
+      if (frame.flags["END_STREAM"]) {
+        this._onTrailers(frame);
+      }
     } else if (frame.type === "PUSH_PROMISE") {
       this._onPromise(frame);
+    } else if (frame.type === "DATA") {
+      this._onData(frame);
     } else if (frame.type === "PRIORITY") {
       this._onPriority(frame);
     } else if (frame.type === "ALTSVC") {
@@ -274,7 +288,7 @@ class Stream extends Duplex {
 
     // * If it's an invalid stream level frame, emit error
     else if (
-      frame.type !== "DATA" &&
+      //frame.type !== "DATA" &&
       frame.type !== "WINDOW_UPDATE" &&
       frame.type !== "RST_STREAM"
     ) {

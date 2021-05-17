@@ -59,7 +59,7 @@ export { Flow };
 // control window size of 65535 bytes.
 const INITIAL_WINDOW_SIZE = 65535;
 
-const logData = true;
+const logData = false;
 const noop = () => {};
 const consoleLogger = () => ({
   debug: (...args: any[]) => (logData ? console.log(...args) : noop()),

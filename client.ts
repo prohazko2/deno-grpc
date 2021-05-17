@@ -6,7 +6,10 @@ import { Status, GrpcError } from "./error.ts";
 import { Serializer, Deserializer, Frame } from "./http2/frames.ts";
 import { Compressor, Decompressor } from "./http2/hpack.ts";
 
+import { delay } from "https://deno.land/std@0.95.0/async/delay.ts";
 import { hexdump } from "https://deno.land/x/prohazko@1.3.4/hex.ts";
+
+import { Stream } from "./http2/stream.ts";
 
 const PRELUDE = new TextEncoder().encode("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
 
@@ -14,6 +17,14 @@ export type ClientInitOptions = Deno.ConnectOptions & {
   root: string | Root;
   serviceName: string;
 };
+
+function waitForFrame(stream: Stream, frameEvent: string): Promise<Frame> {
+  return new Promise((resolve) => {
+    stream.once(frameEvent, (x) => {
+      resolve(x);
+    });
+  });
+}
 
 export class GrpcClient {
   serviceName: string;
@@ -24,9 +35,17 @@ export class GrpcClient {
   d: Deserializer = null!;
   c: Connection = null!;
 
+  hpackCompressor: Compressor = null!;
+  hpackDecompressor: Decompressor = null!;
+
   conn: Deno.Conn = null!;
 
   frames: Frame[] = [];
+
+  flushTimer?: number;
+  flushing = false;
+
+  connecting?: Promise<void>;
 
   constructor(private options: ClientInitOptions) {
     const { root, serviceName } = options;
@@ -43,9 +62,17 @@ export class GrpcClient {
     this.d = new Deserializer("CLIENT");
     this.c = new Connection(1, {});
 
+    this.hpackCompressor = new Compressor("REQUEST");
+    this.hpackDecompressor = new Decompressor("RESPONSE");
+
     this.c.on("data", (f) => {
-      console.log("http2 frame", JSON.stringify(f));
       this.frames.push(f);
+
+      //TODO: move to throttling
+      clearTimeout(this.flushTimer);
+      this.flushTimer = setTimeout(() => {
+        this.flush();
+      }, 10);
     });
   }
 
@@ -66,8 +93,11 @@ export class GrpcClient {
     };
   }
 
-  async drain() {
-    console.log(`draining with frames: ${this.frames.length}`);
+  async flush() {
+    if (this.flushing) {
+      return;
+    }
+    this.flushing = true;
 
     while (this.frames.length) {
       const f = this.frames.shift();
@@ -77,7 +107,7 @@ export class GrpcClient {
       await this.sendFrame(f);
     }
 
-    console.log("done draining");
+    this.flushing = false;
   }
 
   sendPrelude() {
@@ -85,16 +115,12 @@ export class GrpcClient {
   }
 
   async sendFrame(frame: Frame) {
-    console.log("sendFrame", frame);
-
     for (const b of this.s.encode(frame)) {
       if (!b.length) {
         //continue;
       }
 
       try {
-        //console.log("   send:");
-        //console.log(hexdump(b));
         await this.conn!.write(b);
       } catch (err) {
         console.error("errrrrrr", err);
@@ -103,15 +129,26 @@ export class GrpcClient {
     }
   }
 
-  async ensureConnection() {
+  ensureConnection() {
+    if (this.connecting) {
+      return this.connecting;
+    }
+
+    this.connecting = this._ensureConnection();
+    return this.connecting;
+  }
+
+  async _ensureConnection() {
     if (this.conn) {
       return;
     }
     this.conn = await Deno.connect(this.options);
     await this.sendPrelude();
+
+    this.readFrames();
   }
 
-  async *readFrames() {
+  async readFrames() {
     for (;;) {
       let b = new Uint8Array(4096);
       let n: number | null = null;
@@ -129,21 +166,13 @@ export class GrpcClient {
 
       b = b.slice(0, n);
 
-      console.log("got", hexdump(b));
-
       for (const f of this.d.decode(b)) {
-        console.log("gotFrame", f);
-
         if (f.type === "HEADERS") {
-          f.headers = new Decompressor("REQUEST").decompress(f.data);
+          f.headers = this.hpackDecompressor.decompress(f.data);
         }
-
-        yield f;
 
         this.c._receive(f, () => {});
       }
-
-      await this.drain();
     }
   }
 
@@ -170,7 +199,7 @@ export class GrpcClient {
       type: "HEADERS",
       flags: { END_HEADERS: true },
       stream: stream.id,
-      data: new Compressor("RESPONSE").compress(headers),
+      data: this.hpackCompressor.compress(headers),
       headers,
     } as any);
 
@@ -183,38 +212,34 @@ export class GrpcClient {
     dataBytes.set([0x00, 0x00, 0x00, 0x00, reqBytes.length]);
     dataBytes.set(reqBytes, 5);
 
-    stream._pushUpstream({
-      type: "DATA",
-      flags: { END_STREAM: true },
-      data: dataBytes,
-      stream: stream.id,
-    } as any);
+    stream.write(dataBytes);
+    stream.end();
 
-    await this.drain();
+    const frame = await Promise.race([
+      waitForFrame(stream, "trailers"),
+      waitForFrame(stream, "data_frame"),
+    ]);
 
-    for await (const frame of this.readFrames()) {
-      console.log("xxx frame", frame);
+    if (frame.type === "DATA") {
+      const res = this.root
+        .lookupType(method.responseType)
+        .decode(frame.data.slice(5)) as unknown as Res;
 
-      if (frame.type === "DATA") {
-        const res = this.root
-          .lookupType(method.responseType)
-          .decode(frame.data.slice(5)) as unknown as Res;
+      return res;
+    }
 
-        return res;
+    if (frame.type === "HEADERS" && frame.flags.END_STREAM) {
+      let textStatus = Status[+frame.headers["grpc-status"]];
+
+      const message = decodeURIComponent(frame.headers["grpc-message"]);
+      if (!textStatus) {
+        textStatus = Status[Status.UNKNOWN];
       }
+      const err = new GrpcError(`${textStatus}: ${message}`);
+      err.grpcCode = +frame.headers["grpc-status"];
+      err.grpcMessage = message;
 
-      if (frame.type === "HEADERS" && frame.flags.END_STREAM) {
-        let textStatus = Status[+frame.headers["grpc-status"]];
-        const message = decodeURIComponent(frame.headers["grpc-message"]);
-        if (!textStatus) {
-          textStatus = Status[Status.UNKNOWN];
-        }
-        const err = new GrpcError(`${textStatus}: ${message}`);
-        err.grpcCode = +frame.headers["grpc-status"];
-        err.grpcMessage = message;
-
-        throw err;
-      }
+      throw err;
     }
 
     throw new Error("not expected");

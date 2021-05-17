@@ -70,8 +70,6 @@ export class Http2Conn {
       }
 
       for (const f of this.d.decode(b)) {
-        console.log("gotFrame", f);
-
         // if (f.type === "HEADERS") {
         //   const got = new Decompressor("REQUEST").decompress(f.data);
         //   this.headers = { ...this.headers, ...got };
