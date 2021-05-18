@@ -13,17 +13,10 @@ import { Buffer } from "https://deno.land/std@0.93.0/node/buffer.ts";
 
 const assert = _assert as Function;
 
-const logData = false;
-
 const MAX_PAYLOAD_SIZE = 16384;
 const WINDOW_UPDATE_PAYLOAD_SIZE = 4;
 
-const noop = () => {};
-
-const consoleLogger = () => ({
-  trace: (...args: any[]) => (logData ? console.log(...args) : noop()),
-  error: (...args: any[]) => (logData ? console.error(...args) : noop()),
-});
+import { logData, consoleLogger } from "./util.ts";
 
 export type FrameType =
   | "DATA"
@@ -690,9 +683,6 @@ export class Deserializer {
     if (logData) {
       this._log.trace({ data: chunk }, "Incoming data");
     }
-
-    console.log("cursor", cursor);
-    console.log("_cursor", this._cursor);
 
     while (cursor < chunk.length) {
       // The content of an incoming buffer is first copied to `_buffer`. If it can't hold the full

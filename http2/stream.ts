@@ -51,13 +51,7 @@ export { Stream };
 // Constructor
 // -----------
 
-const logData = false;
-const noop = () => {};
-const consoleLogger = () => ({
-  debug: (...args: any[]) => (logData ? console.log(...args) : noop()),
-  trace: (...args: any[]) => (logData ? console.log(...args) : noop()),
-  error: (...args: any[]) => (logData ? console.error(...args) : noop()),
-});
+import { consoleLogger } from "./util.ts";
 
 // The main aspects of managing the stream are:
 class Stream extends Duplex {
@@ -722,6 +716,11 @@ class Stream extends Duplex {
         if (connectionError) {
           this.emit("connectionError", connectionError);
         } else {
+          // TODO: check later if this ok
+          if (frame.type === "RST_STREAM" && frame.error === "NO_ERROR") {
+            return;
+          }
+
           this.reset(streamError as any);
           this.emit("error", streamError);
         }

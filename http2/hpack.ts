@@ -33,14 +33,7 @@ const assert = _assert as Function;
 // [node-objectmode]: https://nodejs.org/api/stream.html#stream_new_stream_readable_options
 // [http2-compression]: https://tools.ietf.org/html/rfc7541
 
-const logData = false;
-
-const noop = () => {};
-
-const consoleLogger = () => ({
-  trace: (...args: any[]) => (logData ? console.log(...args) : noop()),
-  error: (...args: any[]) => (logData ? console.error(...args) : noop()),
-});
+import { consoleLogger } from "./util.ts";
 
 export type HeaderTablePair = [k: string, v: string];
 export type HeaderTableEntry = HeaderTablePair & { _size: number };
@@ -1308,11 +1301,11 @@ export class Compressor extends Transform {
           chunkFrame.flags = Object.assign({}, frame.flags);
           chunkFrame.flags[`END_${frame.type}`] = last;
         } else {
-          chunkFrame = ({
+          chunkFrame = {
             type: "CONTINUATION",
             flags: { END_HEADERS: last },
             stream: frame.stream,
-          } as any) as Frame;
+          } as any as Frame;
         }
         chunkFrame.data = chunks[i];
 

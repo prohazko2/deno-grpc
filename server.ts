@@ -224,7 +224,7 @@ export class GrpcServer {
     try {
       result = await handler(req);
     } catch (err) {
-      return this.sendError(stream, err);
+      return this.sendError(conn, stream, err);
     }
 
     const res = responseType.encode(result || {}).finish();
@@ -266,12 +266,22 @@ export class GrpcServer {
     stream.end();
   }
 
-  sendError(stream: Stream, _err: Error) {
+  sendError(conn: Http2Conn, stream: Stream, _err: Error) {
     const err = error(Status.UNKNOWN, _err.toString());
-    stream.trailers({
+    const trailers = {
       "grpc-status": err.grpcCode.toString(),
       "grpc-message": err.grpcMessage,
-    });
+    };
+
+    stream.sentEndStream = true;
+    stream._pushUpstream({
+      type: "HEADERS",
+      flags: { END_HEADERS: true, END_STREAM: true },
+      stream: stream.id,
+      data: conn.hc.compress(trailers),
+      headers: trailers,
+    } as any);
+
     stream.end();
   }
 }

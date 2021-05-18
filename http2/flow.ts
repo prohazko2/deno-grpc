@@ -59,13 +59,7 @@ export { Flow };
 // control window size of 65535 bytes.
 const INITIAL_WINDOW_SIZE = 65535;
 
-const logData = false;
-const noop = () => {};
-const consoleLogger = () => ({
-  debug: (...args: any[]) => (logData ? console.log(...args) : noop()),
-  trace: (...args: any[]) => (logData ? console.log(...args) : noop()),
-  error: (...args: any[]) => (logData ? console.error(...args) : noop()),
-});
+import { consoleLogger } from "./util.ts";
 
 // `flowControlId` is needed if only specific WINDOW_UPDATEs should be watched.
 class Flow extends Duplex {
