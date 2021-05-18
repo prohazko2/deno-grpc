@@ -15,9 +15,7 @@
 - [ ] `server` server streams
 - [ ] `client` server streams
 - [ ] context deadlines
-- [ ] multiplex calls
-- [ ] calls metadata
-- [ ] logging
+- [x] multiplex calls
 
 ### non goals - gRPC bloat
 
@@ -26,9 +24,6 @@
 - [x] no bidirectional streams
 - [x] no load balancers (maybe simple helper for proxy lb)
 - [x] no interceptors (revisit this later)
-
-### todo
-- [ ] remove all deno/node compatibility (Buffer, stream.Transform, etc)
 
 ## hello world
 
