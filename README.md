@@ -25,9 +25,6 @@
 - [x] no load balancers (maybe simple helper for proxy lb)
 - [x] no interceptors (revisit this later)
 
-### todo
-- [ ] remove all deno/node compatibility (Buffer, stream.Transform, etc)
-
 ## hello world
 
 ### `greeter.proto`
