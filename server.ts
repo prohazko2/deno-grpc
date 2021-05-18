@@ -63,11 +63,9 @@ export class Http2Conn {
     this.hd = new Decompressor("REQUEST");
 
     this.c.on("data", (f) => {
-      console.log("conn frame", f);
       this.frames.push(f);
       this.flush();
 
-      // //TODO: move to throttling
       // clearTimeout(this.flushTimer);
       // this.flushTimer = setTimeout(() => {
       //   this.flush();
@@ -80,7 +78,7 @@ export class Http2Conn {
       return;
     }
     this.flushing = true;
-    console.log(`server flush with ${this.frames.length} frames`);
+    //console.log(`server flush with ${this.frames.length} frames`);
 
     while (this.frames.length) {
       const f = this.frames.shift();
@@ -94,7 +92,7 @@ export class Http2Conn {
   }
 
   async sendFrame(frame: Frame) {
-    console.log("sendFrame", frame);
+    //console.log("sendFrame", frame);
 
     for (const b of this.s.encode(frame)) {
       if (!b.length) {
@@ -119,36 +117,23 @@ export class Http2Conn {
         n = await this.conn.read(b);
       } catch (err) {
         console.error("readFrames err", err);
-        // if (!this.closed) {
-
-        // }
       }
 
       if (!n) {
         return;
       }
 
+      b = b.slice(0, n);
+
       if (startsWith(b, PRELUDE)) {
         b = b.slice(PRELUDE.length);
       }
-
-      b = b.slice(0, n);
-
-      console.log("recv: ");
-      console.log(hexdump(b));
 
       for (const f of this.d.decode(b)) {
         if (f.type === "HEADERS") {
           f.headers = this.hd.decompress(f.data);
         }
-        console.log("got frame", f);
-
-        if (f.type === "DATA" && f.data.length === 0) {
-          console.log("got stange frame which breaks connection", f);
-          continue;
-        }
-
-        this.c._receive(f, () => {});
+        this.c._write(f, "", () => {});
       }
     }
   }
@@ -193,19 +178,8 @@ export class GrpcServer {
 
     const conn = new Http2Conn(_conn);
 
-    conn.c.on("ACKNOWLEDGED_SETTINGS_HEADER_TABLE_SIZE", () => {
-      console.log("ACKNOWLEDGED_SETTINGS_HEADER_TABLE_SIZE");
-    });
-    conn.c.on("RECEIVING_SETTINGS_HEADER_TABLE_SIZE", () => {
-      console.log("RECEIVING_SETTINGS_HEADER_TABLE_SIZE");
-    });
-
     conn.c.on("stream", async (stream: Stream) => {
-      console.log("got stream", "xxx");
-
-      // stream.on("data", (f) => {
-      //   console.log("got stream level frame", f);
-      // });
+      console.log("got stream", stream.id);
 
       const [headers, dataFrame] = await Promise.all([
         waitFor<Record<string, string>>(stream, "headers"),
@@ -213,9 +187,6 @@ export class GrpcServer {
       ]);
 
       await this.handleUnary(conn, stream, headers, dataFrame);
-
-      // only way to reset broken connection
-      conn.d._cursor = 0;
 
       // await delay(5000);
       // await conn.flush();
