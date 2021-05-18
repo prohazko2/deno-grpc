@@ -15,9 +15,7 @@
 - [ ] `server` server streams
 - [ ] `client` server streams
 - [ ] context deadlines
-- [ ] multiplex calls
-- [ ] calls metadata
-- [ ] logging
+- [x] multiplex calls
 
 ### non goals - gRPC bloat
 
