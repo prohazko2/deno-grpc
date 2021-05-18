@@ -2,11 +2,13 @@ import { GrpcServer } from "../server.ts";
 import { Greeter } from "./greeter.d.ts";
 
 const port = 15070;
-const root = await Deno.readTextFile("./examples/greeter.proto");
-
 const server = new GrpcServer();
 
-server.addService<Greeter>(root, {
+const protoPath = new URL("./greeter.proto", import.meta.url);
+const protoFile = await Deno.readTextFile(protoPath);
+
+server.addService<Greeter>(protoFile, {
+  // deno-lint-ignore require-await
   async SayHello({ name }) {
     const message = `hello ${name || "stranger"}`;
     return { message, time: new Date().toISOString() };

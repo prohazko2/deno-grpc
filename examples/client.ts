@@ -1,9 +1,12 @@
 import { getClient } from "../client.ts";
 import { Greeter } from "./greeter.d.ts";
 
+const protoPath = new URL("./greeter.proto", import.meta.url);
+const protoFile = await Deno.readTextFile(protoPath);
+
 const client = getClient<Greeter>({
   port: 15070,
-  root: await Deno.readTextFile("./examples/greeter.proto"),
+  root: protoFile,
   serviceName: "Greeter",
 });
 
