@@ -42,13 +42,6 @@ export { Connection };
 //
 // * **close([error])**: close the stream with an error code
 
-// const logData = false;
-// const noop = () => {};
-// const consoleLogger = () => ({
-//   debug: (...args: any[]) => (logData ? console.log(...args) : noop()),
-//   trace: (...args: any[]) => (logData ? console.log(...args) : noop()),
-//   error: (...args: any[]) => (logData ? console.error(...args) : noop()),
-// });
 
 // Constructor
 // -----------
@@ -393,6 +386,7 @@ class Connection extends Flow {
         frame.type == "CONTINUATION") &&
       frame.stream == 0
     ) {
+      console.log('closing because', frame);
       // Got stream-level frame on connection - EEP!
       this.close("PROTOCOL_ERROR");
       return;

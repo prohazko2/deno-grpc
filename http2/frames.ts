@@ -691,6 +691,9 @@ export class Deserializer {
       this._log.trace({ data: chunk }, "Incoming data");
     }
 
+    console.log("cursor", cursor);
+    console.log("_cursor", this._cursor);
+
     while (cursor < chunk.length) {
       // The content of an incoming buffer is first copied to `_buffer`. If it can't hold the full
       // chunk, then only a part of it is copied.
@@ -715,6 +718,8 @@ export class Deserializer {
         if (payloadSize <= MAX_PAYLOAD_SIZE) {
           this._next(+payloadSize);
         } else {
+          console.log({ payloadSize, MAX_PAYLOAD_SIZE });
+
           throw new Error("FRAME_SIZE_ERROR");
         }
       }

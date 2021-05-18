@@ -32,8 +32,8 @@ export class GrpcClient {
   d: Deserializer = null!;
   c: Connection = null!;
 
-  hpackCompressor: Compressor = null!;
-  hpackDecompressor: Decompressor = null!;
+  hc: Compressor = null!;
+  hd: Decompressor = null!;
 
   conn: Deno.Conn = null!;
 
@@ -60,8 +60,8 @@ export class GrpcClient {
     this.d = new Deserializer("CLIENT");
     this.c = new Connection(1, {});
 
-    this.hpackCompressor = new Compressor("REQUEST");
-    this.hpackDecompressor = new Decompressor("RESPONSE");
+    this.hc = new Compressor("REQUEST");
+    this.hd = new Decompressor("RESPONSE");
 
     this.c.on("data", (f) => {
       this.frames.push(f);
@@ -167,7 +167,7 @@ export class GrpcClient {
 
       for (const f of this.d.decode(b)) {
         if (f.type === "HEADERS") {
-          f.headers = this.hpackDecompressor.decompress(f.data);
+          f.headers = this.hd.decompress(f.data);
         }
 
         this.c._receive(f, () => {});
@@ -204,7 +204,7 @@ export class GrpcClient {
       type: "HEADERS",
       flags: { END_HEADERS: true },
       stream: stream.id,
-      data: this.hpackCompressor.compress(headers),
+      data: this.hc.compress(headers),
       headers,
     } as any);
 
