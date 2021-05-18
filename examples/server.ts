@@ -11,12 +11,12 @@ server.addService<Greeter>(protoFile, {
   // deno-lint-ignore require-await
   async SayHello({ name }) {
     const message = `hello ${name || "stranger"}`;
-    return { message, time: new Date().toISOString() };
+    return { message };
   },
   async *ShoutHello({ name }) {
     for (const n of [0, 1, 2]) {
       const message = `hello ${name || "stranger"} #${n}`;
-      yield { message, time: new Date().toISOString() };
+      yield { message };
     }
   },
 });
