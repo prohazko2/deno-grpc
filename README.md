@@ -14,7 +14,6 @@
 - [x] multiplex calls
 - [x] `server` server streams
 - [x] `client` server streams
-- [ ] context deadlines
 - [ ] logging interface
 
 ### non goals - gRPC bloat
@@ -22,8 +21,13 @@
 - [x] no TLS
 - [x] no client streams
 - [x] no bidirectional streams
-- [x] no load balancers (maybe simple helper for proxy lb)
+- [x] no client side load balancing
 - [x] no interceptors (revisit this later)
+
+### not sure
+- [ ] call deadlines
+- [ ] call metadata
+- [ ] call cancelation
 
 ## hello world
 
