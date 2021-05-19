@@ -1,15 +1,13 @@
 import { startsWith } from "https://deno.land/std@0.93.0/bytes/mod.ts";
 
-import { Root, parse } from "./proto.ts";
+import { Root, parse, Type } from "./proto.ts";
 
 import { Connection } from "./http2/conn.ts";
 import { Status, error } from "./error.ts";
 import { Serializer, Deserializer, Frame } from "./http2/frames.ts";
 import { Compressor, Decompressor } from "./http2/hpack.ts";
 
-import { hexdump } from "https://deno.land/x/prohazko@1.3.4/hex.ts";
 import { Stream } from "./http2/stream.ts";
-import { delay } from "https://deno.land/std@0.93.0/async/delay.ts";
 
 const PRELUDE = new TextEncoder().encode("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
 
@@ -32,6 +30,14 @@ function waitFor<T>(stream: Stream, frameEvent: string): Promise<T> {
       resolve(x);
     });
   });
+}
+
+function encodeResult<T>(type: Type, v: T) {
+  const res = type.encode(v || {}).finish();
+  const buf = new Uint8Array(5 + res.length);
+  buf.set([0x00, 0x00, 0x00, 0x00, res.length]);
+  buf.set(res, 5);
+  return buf;
 }
 
 export class Http2Conn {
@@ -216,7 +222,7 @@ export class GrpcServer {
         `Method "${headers[":path"]}" not implemented`
       );
     }
-    const { responseType, requestType, handler } = impl;
+    const { responseType, requestType, handler, streamed } = impl;
 
     const req = requestType.decode(dataFrame.data.slice(5));
     let result: any = {};
@@ -226,11 +232,6 @@ export class GrpcServer {
     } catch (err) {
       return this.sendError(conn, stream, err);
     }
-
-    const res = responseType.encode(result || {}).finish();
-    const buf = new Uint8Array(5 + res.length);
-    buf.set([0x00, 0x00, 0x00, 0x00, res.length]);
-    buf.set(res, 5);
 
     const responseHeaders = {
       ":status": "200",
@@ -245,43 +246,53 @@ export class GrpcServer {
       stream: stream.id,
       data: conn.hc.compress(responseHeaders),
       headers: responseHeaders,
-    } as any);
+    });
 
-    stream.write(buf);
+    if (streamed) {
+      result = result as AsyncGenerator;
 
-    const trailers = {
+      try {
+        for await (const r of result) {
+          stream.write(encodeResult(responseType, r));
+        }
+      } catch (err) {
+        return this.sendError(conn, stream, err);
+      }
+    } else {
+      stream.write(encodeResult(responseType, result));
+    }
+
+    this.sendTrailers(conn, stream, {
       "grpc-status": "0",
       "grpc-message": "OK",
-    };
+    });
+  }
 
-    stream.sentEndStream = true;
-    stream._pushUpstream({
-      type: "HEADERS",
-      flags: { END_HEADERS: true, END_STREAM: true },
-      stream: stream.id,
-      data: conn.hc.compress(trailers),
-      headers: trailers,
-    } as any);
-
-    stream.end();
+  sendTrailers(
+    conn: Http2Conn,
+    stream: Stream,
+    trailers: Record<string, string>
+  ) {
+    try {
+      stream.sentEndStream = true;
+      stream._pushUpstream({
+        type: "HEADERS",
+        flags: { END_HEADERS: true, END_STREAM: true },
+        stream: stream.id,
+        data: conn.hc.compress(trailers),
+        headers: trailers,
+      });
+      stream.end();
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   sendError(conn: Http2Conn, stream: Stream, _err: Error) {
     const err = error(Status.UNKNOWN, _err.toString());
-    const trailers = {
+    this.sendTrailers(conn, stream, {
       "grpc-status": err.grpcCode.toString(),
       "grpc-message": err.grpcMessage,
-    };
-
-    stream.sentEndStream = true;
-    stream._pushUpstream({
-      type: "HEADERS",
-      flags: { END_HEADERS: true, END_STREAM: true },
-      stream: stream.id,
-      data: conn.hc.compress(trailers),
-      headers: trailers,
-    } as any);
-
-    stream.end();
+    });
   }
 }

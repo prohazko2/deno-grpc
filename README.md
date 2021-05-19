@@ -11,11 +11,11 @@
 - [x] load proto files
 - [x] `server` unary calls
 - [x] `client` unary calls
-- [ ] errors
-- [ ] `server` server streams
+- [x] multiplex calls
+- [x] `server` server streams
 - [ ] `client` server streams
 - [ ] context deadlines
-- [x] multiplex calls
+- [ ] logging interface
 
 ### non goals - gRPC bloat
 

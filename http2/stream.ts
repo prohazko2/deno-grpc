@@ -240,8 +240,8 @@ class Stream extends Duplex {
     this.on("finish", this._finishing);
   }
 
-  _pushUpstream(frame: Frame) {
-    this.upstream?.push(frame);
+  _pushUpstream(frame: Partial<Frame>) {
+    this.upstream?.push(frame as Frame);
     return this._transition(true, frame);
   }
 
