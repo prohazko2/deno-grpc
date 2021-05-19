@@ -14,6 +14,7 @@ const client = getClient<Greeter>({
 console.log(await client.SayHello({ name: "unary #1" }));
 console.log(await client.SayHello({ name: "unary #2" }));
 
+/* server stream */
 for await (const reply of client.ShoutHello({ name: "streamed" })) {
   console.log(reply);
 }

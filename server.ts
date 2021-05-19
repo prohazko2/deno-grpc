@@ -180,12 +180,12 @@ export class GrpcServer {
   }
 
   async handle(_conn: Deno.Conn) {
-    console.log("got new connection");
+    //console.log("got new connection");
 
     const conn = new Http2Conn(_conn);
 
     conn.c.on("stream", async (stream: Stream) => {
-      console.log("got stream", stream.id);
+      //console.log("got stream", stream.id);
 
       const [headers, dataFrame] = await Promise.all([
         waitFor<Record<string, string>>(stream, "headers"),
