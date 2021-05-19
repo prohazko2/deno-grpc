@@ -148,7 +148,7 @@ export class Http2Conn {
 export class GrpcServer {
   _services: GrpcService[] = [];
 
-  addService<T>(_root: string | Root, impl: T) {
+  addService<T = any>(_root: string | Root, impl: T) {
     const svc = new GrpcService(_root, impl);
     this._services.push(svc);
     return svc;

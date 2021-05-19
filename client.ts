@@ -1,4 +1,4 @@
-import { parse, Root, Service } from "./proto.ts";
+import { Method, parse, Root, Service } from "./proto.ts";
 
 import { Connection } from "./http2/conn.ts";
 
@@ -23,7 +23,27 @@ function waitForFrame(stream: Stream, frameEvent: string): Promise<Frame> {
   });
 }
 
-export class GrpcClient {
+function raiseErrorFrom(headers: Record<string, string>) {
+  let textStatus = Status[+headers["grpc-status"]];
+
+  const message = decodeURIComponent(headers["grpc-message"]);
+  if (!textStatus) {
+    textStatus = Status[Status.UNKNOWN];
+  }
+  const err = new GrpcError(`${textStatus}: ${message}`);
+  err.grpcCode = +headers["grpc-status"];
+  err.grpcMessage = message;
+  return err;
+}
+
+export interface GrpcClient {
+  close(): void;
+
+  //_callUnary<Req, Res>(name: string, req: Req): Promise<Res>;
+  //_callStream<Req, Res>(name: string, req: Req): AsyncGenerator<Res>;
+}
+
+export class GrpcClientImpl implements GrpcClient {
   serviceName: string;
   root: Root;
   svc: Service;
@@ -206,7 +226,7 @@ export class GrpcClient {
       stream: stream.id,
       data: this.hc.compress(headers),
       headers,
-    } as any);
+    });
 
     const reqBytes = this.root
       .lookupType(method.requestType)
@@ -220,6 +240,7 @@ export class GrpcClient {
     stream.write(dataBytes);
     stream.end();
 
+    // TODO: check for event leaks
     const frame = await Promise.race([
       waitForFrame(stream, "trailers"),
       waitForFrame(stream, "data_frame"),
@@ -234,28 +255,96 @@ export class GrpcClient {
     }
 
     if (frame.type === "HEADERS" && frame.flags.END_STREAM) {
-      let textStatus = Status[+frame.headers["grpc-status"]];
-
-      const message = decodeURIComponent(frame.headers["grpc-message"]);
-      if (!textStatus) {
-        textStatus = Status[Status.UNKNOWN];
-      }
-      const err = new GrpcError(`${textStatus}: ${message}`);
-      err.grpcCode = +frame.headers["grpc-status"];
-      err.grpcMessage = message;
-
+      const err = raiseErrorFrom(frame.headers);
       throw err;
     }
 
     throw new Error("not expected");
   }
+
+  async *_callStream<Req, Res>(name: string, req: Req): AsyncGenerator<Res> {
+    await this.ensureConnection();
+
+    // TODO: throw error here on not found
+    const method = this.svc.methods[name];
+
+    let serviceName = this.svc.fullName;
+    if (serviceName.startsWith(".")) {
+      serviceName = serviceName.replace(".", "");
+    }
+    const path = `/${serviceName}/${method.name}`;
+
+    const headers = {
+      ...this.getDefaultHeaders(),
+      ":path": path,
+    };
+
+    const stream = this.c.createStream();
+
+    stream._pushUpstream({
+      type: "HEADERS",
+      flags: { END_HEADERS: true },
+      stream: stream.id,
+      data: this.hc.compress(headers),
+      headers,
+    });
+
+    const reqBytes = this.root
+      .lookupType(method.requestType)
+      .encode(req)
+      .finish();
+
+    const dataBytes = new Uint8Array(5 + reqBytes.length);
+    dataBytes.set([0x00, 0x00, 0x00, 0x00, reqBytes.length]);
+    dataBytes.set(reqBytes, 5);
+
+    stream.write(dataBytes);
+    stream.end();
+
+    // stream.on("data_frame", (x) => {
+    //   console.log("data_frame", x);
+    // });
+
+    // for await (const chunk of stream) {
+    //   console.log("chunk", chunk);
+    // }
+
+    for (;;) {
+      const frame = await Promise.race([
+        waitForFrame(stream, "trailers"),
+        waitForFrame(stream, "data_frame"),
+      ]);
+
+      if (frame.type === "DATA") {
+        const res = this.root
+          .lookupType(method.responseType)
+          .decode(frame.data.slice(5)) as unknown as Res;
+
+        yield res;
+      }
+
+      if (frame.type === "HEADERS" && frame.flags.END_STREAM) {
+        const err = raiseErrorFrom(frame.headers);
+        if (err.grpcCode === Status.OK) {
+          return;
+        }
+        throw err;
+      }
+    }
+  }
 }
 
-export function getClient<T>(options: ClientInitOptions): GrpcClient & T {
-  const client = new GrpcClient(options) as any;
+export function getClient<T = any>(options: ClientInitOptions): GrpcClient & T {
+  const client = new GrpcClientImpl(options) as any;
 
-  for (const methodName of Object.keys(client.svc.methods)) {
-    client[methodName] = (req: unknown) => client._callUnary(methodName, req);
+  for (const name of Object.keys(client.svc.methods)) {
+    const m = client.svc.methods[name] as Method;
+
+    if (m.responseStream) {
+      client[name] = (req: unknown) => client._callStream(name, req);
+    } else {
+      client[name] = (req: unknown) => client._callUnary(name, req);
+    }
   }
 
   return client as GrpcClient & T;

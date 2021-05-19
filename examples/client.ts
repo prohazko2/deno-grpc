@@ -11,12 +11,11 @@ const client = getClient<Greeter>({
 });
 
 /* unary calls */
-console.log(await client.SayHello({ name: "oleg 01" }));
-console.log(await client.SayHello({ name: "oleg 02" }));
+console.log(await client.SayHello({ name: "unary #1" }));
+console.log(await client.SayHello({ name: "unary #2" }));
 
-/* stream from server */
-// for await (const reply of client.ShoutHello({ name: "oleg" })) {
-//   console.log(reply);
-// }
+for await (const reply of client.ShoutHello({ name: "streamed" })) {
+  console.log(reply);
+}
 
 client.close();
