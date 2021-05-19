@@ -36,6 +36,52 @@ function raiseErrorFrom(headers: Record<string, string>) {
   return err;
 }
 
+class NodeStreamReader {
+  frames: Frame[] = [];
+  resolvers: ((f: Frame) => void)[] = [];
+
+  constructor(stream: Stream) {
+    stream.on("data_frame", (f: Frame) => {
+      this.frames.push(f);
+      this._resolveFrame(f);
+    });
+    stream.on("trailers", (f: Frame) => {
+      this.frames.push(f);
+      this._resolveFrame(f);
+    });
+  }
+
+  _resolveFrame(frame: Frame) {
+    for (const resolve of this.resolvers) {
+      resolve(frame);
+    }
+    this.resolvers = [];
+  }
+
+  _waitForFrame(): Promise<Frame> {
+    return new Promise((resolve) => this.resolvers.push(resolve));
+  }
+
+  async *next(): AsyncGenerator<Frame> {
+    while (true) {
+      let f0 = this.frames.shift();
+      if (!f0) {
+        f0 = await this._waitForFrame();
+      }
+
+      yield f0;
+
+      while (this.frames.length) {
+        const f1 = this.frames.shift();
+
+        if (f1 !== f0) {
+          yield f1!;
+        }
+      }
+    }
+  }
+}
+
 export interface GrpcClient {
   close(): void;
 
@@ -301,20 +347,9 @@ export class GrpcClientImpl implements GrpcClient {
     stream.write(dataBytes);
     stream.end();
 
-    // stream.on("data_frame", (x) => {
-    //   console.log("data_frame", x);
-    // });
-
-    // for await (const chunk of stream) {
-    //   console.log("chunk", chunk);
-    // }
-
-    for (;;) {
-      const frame = await Promise.race([
-        waitForFrame(stream, "trailers"),
-        waitForFrame(stream, "data_frame"),
-      ]);
-
+    // TODO: there must be better way
+    const reader = new NodeStreamReader(stream);
+    for await (const frame of reader.next()) {
       if (frame.type === "DATA") {
         const res = this.root
           .lookupType(method.responseType)
