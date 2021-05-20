@@ -14,7 +14,7 @@
 - [x] multiplex calls
 - [x] `server` server streams
 - [x] `client` server streams
-- [ ] logging interface
+- [ ] logging interface (with interceptors?)
 
 ### non goals - gRPC bloat
 
@@ -22,7 +22,6 @@
 - [x] no client streams
 - [x] no bidirectional streams
 - [x] no client side load balancing
-- [x] no interceptors (revisit this later)
 
 ### not sure
 - [ ] call deadlines
