@@ -14,7 +14,7 @@
 - [x] multiplex calls
 - [x] `server` server streams
 - [x] `client` server streams
-- [ ] reconnections
+- [ ] auto reconnects
 - [ ] logging interface (with interceptors?)
 
 ### non goals - gRPC bloat
