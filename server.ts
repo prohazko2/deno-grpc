@@ -3,7 +3,7 @@ import { startsWith } from "https://deno.land/std@0.93.0/bytes/mod.ts";
 import { Root, parse, Type } from "./proto.ts";
 
 import { Connection } from "./http2/conn.ts";
-import { Status, error } from "./error.ts";
+import { Status, error, GrpcError } from "./error.ts";
 import { Serializer, Deserializer, Frame } from "./http2/frames.ts";
 import { Compressor, Decompressor } from "./http2/hpack.ts";
 
@@ -179,7 +179,7 @@ export class GrpcServer {
     return null;
   }
 
-  async handle(_conn: Deno.Conn) {
+  handle(_conn: Deno.Conn) {
     //console.log("got new connection");
 
     const conn = new Http2Conn(_conn);
@@ -187,15 +187,16 @@ export class GrpcServer {
     conn.c.on("stream", async (stream: Stream) => {
       //console.log("got stream", stream.id);
 
-      const [headers, dataFrame] = await Promise.all([
-        waitFor<Record<string, string>>(stream, "headers"),
-        waitFor<Frame>(stream, "data_frame"),
-      ]);
+      try {
+        const [headers, dataFrame] = await Promise.all([
+          waitFor<Record<string, string>>(stream, "headers"),
+          waitFor<Frame>(stream, "data_frame"),
+        ]);
 
-      await this.handleUnary(conn, stream, headers, dataFrame);
-
-      // await delay(5000);
-      // await conn.flush();
+        await this.handleStream(conn, stream, headers, dataFrame);
+      } catch (err) {
+        return this.sendError(conn, stream, err);
+      }
     });
 
     conn.readFrames().catch((err) => {
@@ -203,7 +204,7 @@ export class GrpcServer {
     });
   }
 
-  async handleUnary(
+  async handleStream(
     conn: Http2Conn,
     stream: Stream,
     headers: Record<string, string>,
@@ -225,13 +226,8 @@ export class GrpcServer {
     const { responseType, requestType, handler, streamed } = impl;
 
     const req = requestType.decode(dataFrame.data.slice(5));
-    let result: any = {};
 
-    try {
-      result = await handler(req);
-    } catch (err) {
-      return this.sendError(conn, stream, err);
-    }
+    let result = await handler(req);
 
     const responseHeaders = {
       ":status": "200",
@@ -251,12 +247,8 @@ export class GrpcServer {
     if (streamed) {
       result = result as AsyncGenerator;
 
-      try {
-        for await (const r of result) {
-          stream.write(encodeResult(responseType, r));
-        }
-      } catch (err) {
-        return this.sendError(conn, stream, err);
+      for await (const r of result) {
+        stream.write(encodeResult(responseType, r));
       }
     } else {
       stream.write(encodeResult(responseType, result));
@@ -288,11 +280,14 @@ export class GrpcServer {
     }
   }
 
-  sendError(conn: Http2Conn, stream: Stream, _err: Error) {
-    const err = error(Status.UNKNOWN, _err.toString());
+  sendError(conn: Http2Conn, stream: Stream, err: Error) {
+    if (!(err instanceof GrpcError)) {
+      err = error(Status.UNKNOWN, err.toString());
+    }
+
     this.sendTrailers(conn, stream, {
-      "grpc-status": err.grpcCode.toString(),
-      "grpc-message": err.grpcMessage,
+      "grpc-status": (err as GrpcError).grpcCode.toString(),
+      "grpc-message": (err as GrpcError).grpcMessage,
     });
   }
 }

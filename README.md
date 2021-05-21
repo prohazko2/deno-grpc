@@ -1,5 +1,7 @@
 # `/x/grpc_basic`
 
+- [latest](https://deno.land/x/grpc_basic)
+
 ⚠️ You probably should wait for more mature and standard aligned implementation beacuse:
  1. This lib doesn't use Deno's 1.9 HTTP/2 native bindings, but relies on JS implementation roughly ported from [node-http2](https://github.com/molnarg/node-http2)
  2. I'm not an expert in gRPC or HTTP/2, I just moved HTTP/2 frames around until it worked 
@@ -57,7 +59,7 @@ message HelloReply {
 Service typings are not essential, but it's nice to have them
 
 ```sh
-$ deno run --allow-read https://deno.land/x/grpc_basic@0.4.1/gen/dts.ts ./greeter.proto > ./greeter.d.ts
+$ deno run --allow-read https://deno.land/x/grpc_basic@0.4.2/gen/dts.ts ./greeter.proto > ./greeter.d.ts
 ```
 
 ```ts
@@ -78,7 +80,7 @@ export interface HelloReply {
 ### `server.ts`
 
 ```ts
-import { GrpcServer } from "https://deno.land/x/grpc_basic@0.4.1/server.ts";
+import { GrpcServer } from "https://deno.land/x/grpc_basic@0.4.2/server.ts";
 import { Greeter } from "./greeter.d.ts";
 
 const port = 15070;
@@ -112,7 +114,7 @@ for await (const conn of Deno.listen({ port })) {
 ### `client.ts`
 
 ```ts
-import { getClient } from "https://deno.land/x/grpc_basic@0.4.1/client.ts";
+import { getClient } from "https://deno.land/x/grpc_basic@0.4.2/client.ts";
 import { Greeter } from "./greeter.d.ts";
 
 const protoPath = new URL("./greeter.proto", import.meta.url);
