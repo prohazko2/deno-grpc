@@ -162,6 +162,7 @@ export class GrpcClientImpl implements GrpcClient {
       return;
     }
     this.flushing = true;
+    await this.ensureConnection();
 
     while (this.frames.length) {
       const f = this.frames.shift();
@@ -236,7 +237,7 @@ export class GrpcClientImpl implements GrpcClient {
           f.headers = this.hd.decompress(f.data);
         }
 
-        this.c._receive(f, () => {});
+        this.c._write(f, '', () => {});
       }
     }
   }
@@ -293,11 +294,11 @@ export class GrpcClientImpl implements GrpcClient {
     ]);
 
     if (frame.type === "DATA") {
-      const res = this.root
-        .lookupType(method.responseType)
-        .decode(frame.data.slice(5)) as unknown as Res;
+        const res = this.root
+          .lookupType(method.responseType)
+          .decode(frame.data.slice(5)) as unknown as Res;
 
-      return res;
+        return res;
     }
 
     if (frame.type === "HEADERS" && frame.flags.END_STREAM) {
