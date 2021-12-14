@@ -59,7 +59,7 @@ message HelloReply {
 Service typings are not essential, but it's nice to have them
 
 ```sh
-$ deno run --allow-read https://deno.land/x/grpc_basic@0.4.3/gen/dts.ts ./greeter.proto > ./greeter.d.ts
+$ deno run --allow-read https://deno.land/x/grpc_basic@0.4.4/gen/dts.ts ./greeter.proto > ./greeter.d.ts
 ```
 
 ```ts
