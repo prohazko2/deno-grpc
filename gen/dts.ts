@@ -1,5 +1,7 @@
 import { parse, Root, Type, Service, Field } from "../proto.ts";
 
+type TypeOrEnum = Type & { values: Record<string, number> };
+
 export function serviceTyping(svc: Service) {
   const methods = Object.keys(svc.methods).map((name) => {
     const call = svc.methods[name];
@@ -16,7 +18,16 @@ export function serviceTyping(svc: Service) {
   return `export interface ${svc.name} {\n${methods.join("\n")}\n}`;
 }
 
-export function messageTyping(msg: Type) {
+export function enumTyping(msg: TypeOrEnum) {
+  const values = Object.keys(msg.values || {}).map((v) => `"${v}"`);
+  return `export type ${msg.name} = ${values.join(" | ")} | string;`;
+}
+
+export function messageTyping(msg: TypeOrEnum) {
+  if (msg.values) {
+    return enumTyping(msg);
+  }
+
   const fields = Object.values(msg.fields).map(
     (field) => `  ${fieldTyping(field)};`
   );
@@ -31,7 +42,17 @@ export function fieldTyping(field: Field) {
     type = "boolean";
   }
 
-  if (type === "int32" || type === "int64" || type === "double") {
+  if (type === "bytes") {
+    type = "Uint8Array";
+  }
+
+  if (
+    type === "int32" ||
+    type === "int64" ||
+    type === "uint32" ||
+    type === "uint64" ||
+    type === "double"
+  ) {
     type = "number";
   }
 
@@ -43,7 +64,7 @@ export function fieldTyping(field: Field) {
     name += "?";
   }
 
-  if (field.optional) {
+  if (!field.repeated && field.optional) {
     name += "?";
   }
 
@@ -54,7 +75,7 @@ export function* allOfKind<T>(
   root: Root,
   detect: (r: T) => boolean
 ): Generator<T> {
-  const t = (root as unknown) as T;
+  const t = root as unknown as T;
   if (t && detect(t)) {
     yield t;
   }
@@ -77,7 +98,7 @@ ${[...allOfKind<Service>(root, (s) => !!s.methods)]
   .map(serviceTyping)
   .join("\n\n")}
 
-${[...allOfKind<Type>(root, (s) => !!s.fields)]
+${[...allOfKind<TypeOrEnum>(root, (s) => !!s.fields || !!s.values)]
   .map(messageTyping)
   .join("\n\n")}`;
 
