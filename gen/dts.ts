@@ -1,4 +1,5 @@
 import { parse, Root, Type, Service, Field } from "../proto.ts";
+import { fromFileUrl } from "https://deno.land/std@0.110.0/path/mod.ts";
 
 type TypeOrEnum = Type & { values: Record<string, number> };
 
@@ -107,7 +108,7 @@ ${[...allOfKind<TypeOrEnum>(root, (s) => !!s.fields || !!s.values)]
 
 if (import.meta.main && Deno.args[0]) {
   const url = new URL(Deno.args[0], `file://${Deno.cwd()}/`);
-  const txt = await Deno.readTextFile(url.pathname);
+  const txt = await Deno.readTextFile(fromFileUrl(url.toString()));
 
   console.log(fromProto(txt));
 }
