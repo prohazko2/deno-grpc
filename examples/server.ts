@@ -1,7 +1,7 @@
 import { GrpcServer } from "../server.ts";
 import { Greeter } from "./greeter.d.ts";
 
-const port = 15070;
+const port = 50051;
 const server = new GrpcServer();
 
 const protoPath = new URL("./greeter.proto", import.meta.url);

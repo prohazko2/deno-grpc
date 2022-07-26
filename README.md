@@ -38,7 +38,7 @@
 ```proto
 syntax = "proto3";
 
-package prohazko;
+package helloworld;
 
 service Greeter {
   rpc SayHello (HelloRequest) returns (HelloReply) {}
@@ -59,7 +59,7 @@ message HelloReply {
 Service typings are not essential, but it's nice to have them
 
 ```sh
-$ deno run --allow-read https://deno.land/x/grpc_basic@0.4.5/gen/dts.ts ./greeter.proto > ./greeter.d.ts
+$ deno run --allow-read https://deno.land/x/grpc_basic@0.4.6/gen/dts.ts ./greeter.proto > ./greeter.d.ts
 ```
 
 ```ts
@@ -80,10 +80,10 @@ export interface HelloReply {
 ### `server.ts`
 
 ```ts
-import { GrpcServer } from "https://deno.land/x/grpc_basic@0.4.5/server.ts";
+import { GrpcServer } from "https://deno.land/x/grpc_basic@0.4.6/server.ts";
 import { Greeter } from "./greeter.d.ts";
 
-const port = 15070;
+const port = 50051;
 const server = new GrpcServer();
 
 const protoPath = new URL("./greeter.proto", import.meta.url);
@@ -114,14 +114,14 @@ for await (const conn of Deno.listen({ port })) {
 ### `client.ts`
 
 ```ts
-import { getClient } from "https://deno.land/x/grpc_basic@0.4.5/client.ts";
+import { getClient } from "https://deno.land/x/grpc_basic@0.4.6/client.ts";
 import { Greeter } from "./greeter.d.ts";
 
 const protoPath = new URL("./greeter.proto", import.meta.url);
 const protoFile = await Deno.readTextFile(protoPath);
 
 const client = getClient<Greeter>({
-  port: 15070,
+  port: 50051,
   root: protoFile,
   serviceName: "Greeter",
 });

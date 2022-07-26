@@ -5,7 +5,7 @@ const protoPath = new URL("./greeter.proto", import.meta.url);
 const protoFile = await Deno.readTextFile(protoPath);
 
 const client = getClient<Greeter>({
-  port: 15070,
+  port: 50051,
   root: protoFile,
   serviceName: "Greeter",
 });
