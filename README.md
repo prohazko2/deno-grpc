@@ -17,7 +17,8 @@
 - [x] `server` server streams
 - [x] `client` server streams
 - [ ] auto reconnects
-- [ ] logging interface (with interceptors?)
+- [ ] logging interface
+- [ ] deadlines/cancellation with AbortController/AbortSignal
 
 ### non goals - gRPC bloat
 
@@ -27,9 +28,7 @@
 - [x] no client side load balancing
 
 ### not sure
-- [ ] call deadlines
 - [ ] call metadata
-- [ ] call cancelation
 
 ## hello world
 
