@@ -71,11 +71,6 @@ export class Http2Conn {
     this.c.on("data", (f) => {
       this.frames.push(f);
       this.flush();
-
-      // clearTimeout(this.flushTimer);
-      // this.flushTimer = setTimeout(() => {
-      //   this.flush();
-      // }, 10);
     });
   }
 
@@ -84,7 +79,6 @@ export class Http2Conn {
       return;
     }
     this.flushing = true;
-    //console.log(`server flush with ${this.frames.length} frames`);
 
     while (this.frames.length) {
       const f = this.frames.shift();
@@ -98,8 +92,6 @@ export class Http2Conn {
   }
 
   async sendFrame(frame: Frame) {
-    //console.log("sendFrame", frame);
-
     for (const b of this.s.encode(frame)) {
       if (!b.length) {
         //continue;
@@ -108,8 +100,8 @@ export class Http2Conn {
       try {
         await this.conn.write(b);
       } catch (err) {
-        console.error("errrrrrr", err);
-        console.log(frame);
+        // noop
+        // TODO: log connection errors logger interface
       }
     }
   }
@@ -122,7 +114,8 @@ export class Http2Conn {
       try {
         n = await this.conn.read(b);
       } catch (err) {
-        console.error("readFrames err", err);
+        // TODO: log connection errors logger interface
+        return;
       }
 
       if (!n) {
