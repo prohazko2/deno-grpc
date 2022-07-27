@@ -16,10 +16,10 @@
 - [x] multiplex calls
 - [x] `server` server streams
 - [x] `client` server streams
-- [ ] auto reconnects
-- [ ] logging interface
+- [ ] auto reconnects (without retries)
 - [ ] deadlines/cancellation with AbortController/AbortSignal
 - [ ] call metadata
+- [ ] logging interface
 
 ### non goals - gRPC bloat
 
