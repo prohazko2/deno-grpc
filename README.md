@@ -19,6 +19,7 @@
 - [ ] auto reconnects
 - [ ] logging interface
 - [ ] deadlines/cancellation with AbortController/AbortSignal
+- [ ] call metadata
 
 ### non goals - gRPC bloat
 
@@ -26,9 +27,6 @@
 - [x] no client streams
 - [x] no bidirectional streams
 - [x] no client side load balancing
-
-### not sure
-- [ ] call metadata
 
 ## hello world
 
