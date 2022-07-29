@@ -101,7 +101,7 @@ export class GrpcClientImpl implements GrpcClient {
   hc: Compressor = null!;
   hd: Decompressor = null!;
 
-  conn: Deno.Conn = null!;
+  conn?: Deno.Conn = null!;
 
   frames: Frame[] = [];
 
@@ -121,27 +121,10 @@ export class GrpcClientImpl implements GrpcClient {
 
     this.serviceName = serviceName;
     this.svc = this.root.lookupService(serviceName);
-
-    this.s = new Serializer();
-    this.d = new Deserializer("CLIENT");
-    this.c = new Connection(1, {});
-
-    this.hc = new Compressor("REQUEST");
-    this.hd = new Decompressor("RESPONSE");
-
-    this.c.on("data", (f) => {
-      this.frames.push(f);
-
-      //TODO: move to throttling
-      clearTimeout(this.flushTimer);
-      this.flushTimer = setTimeout(() => {
-        this.flush();
-      }, 10);
-    });
   }
 
   getAuthority() {
-    const { hostname, port } = this.conn.remoteAddr as Deno.NetAddr;
+    const { hostname, port } = this.conn!.remoteAddr as Deno.NetAddr;
     return `${hostname}:${port}`;
   }
 
@@ -176,7 +159,7 @@ export class GrpcClientImpl implements GrpcClient {
   }
 
   sendPrelude() {
-    return this.conn.write(PRELUDE);
+    return this.conn!.write(PRELUDE);
   }
 
   async sendFrame(frame: Frame) {
@@ -188,12 +171,24 @@ export class GrpcClientImpl implements GrpcClient {
         //continue;
       }
 
-      try {
-        await this.conn.write(b);
-      } catch (err) {
-        console.error("errrrrrr", err);
-        console.log(frame);
+      const try0 = await this.conn!.write(b).catch((err) => err);
+      if (typeof try0 === "object") {
+        this.close();
+        await this.ensureConnection();
+
+        const try1 = await this.conn!.write(b).catch((err) => err);
+        console.log("try1", typeof try1, try1);
       }
+
+      // try {
+      //   await this.conn!.write(b);
+      // } catch (err) {
+      //   if (err.toString().includes("BrokenPipe")) {
+      //     this.conn = null!;
+      //   }
+      //   console.error("errrrrrr", err.toString());
+      //   console.log(frame);
+      // }
     }
   }
 
@@ -213,6 +208,25 @@ export class GrpcClientImpl implements GrpcClient {
     this.conn = await Deno.connect(this.options);
     await this.sendPrelude();
 
+    delete this.connecting;
+
+    this.s = new Serializer();
+    this.d = new Deserializer("CLIENT");
+    this.c = new Connection(1, {});
+
+    this.hc = new Compressor("REQUEST");
+    this.hd = new Decompressor("RESPONSE");
+
+    this.c.on("data", (f) => {
+      this.frames.push(f);
+
+      //TODO: move to throttling
+      clearTimeout(this.flushTimer);
+      this.flushTimer = setTimeout(() => {
+        this.flush();
+      }, 10);
+    });
+
     this.readFrames();
   }
 
@@ -222,7 +236,7 @@ export class GrpcClientImpl implements GrpcClient {
       let n: number | null = null;
 
       try {
-        n = await this.conn.read(b);
+        n = await this.conn!.read(b);
       } catch (err) {
         if (!this.closed) {
           console.error("readFrames err", err);
@@ -246,9 +260,12 @@ export class GrpcClientImpl implements GrpcClient {
   }
 
   close() {
-    this.conn.close();
+    this.conn?.close();
     this.conn = null!;
     this.closed = true;
+
+    delete this.connecting;
+    clearTimeout(this.flushTimer);
   }
 
   async _callUnary<Req, Res>(name: string, req: Req): Promise<Res> {
