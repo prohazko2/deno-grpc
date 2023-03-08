@@ -284,7 +284,12 @@ export class GrpcClientImpl implements GrpcClient {
       .finish();
 
     const dataBytes = new Uint8Array(5 + reqBytes.length);
-    dataBytes.set([0x00, 0x00, 0x00, 0x00, reqBytes.length]);
+    const lengthBytes = new ArrayBuffer(4);
+    new DataView(lengthBytes).setUint32(0, reqBytes.length, false);
+
+    // length prefix
+    dataBytes.set(new Uint8Array(lengthBytes), 1);
+    // request bytes
     dataBytes.set(reqBytes, 5);
 
     stream.write(dataBytes);
