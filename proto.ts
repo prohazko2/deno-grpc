@@ -7,7 +7,7 @@ import type {
   Method,
   ReflectionObject,
   IParserResult
-} from "npm:protobufjs@6.10.2/index.d.ts";
+} from "npm:protobufjs@6.10.2";
 
 import protobuf from "npm:protobufjs@6.10.2";
 
