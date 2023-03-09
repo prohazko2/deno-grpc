@@ -56,7 +56,7 @@ message HelloReply {
 Service typings are not essential, but it's nice to have them
 
 ```sh
-$ deno run --allow-read https://deno.land/x/grpc_basic@0.4.6/gen/dts.ts ./greeter.proto > ./greeter.d.ts
+$ deno run --allow-read https://deno.land/x/grpc_basic@0.4.7/gen/dts.ts ./greeter.proto > ./greeter.d.ts
 ```
 
 ```ts
@@ -77,7 +77,7 @@ export interface HelloReply {
 ### `server.ts`
 
 ```ts
-import { GrpcServer } from "https://deno.land/x/grpc_basic@0.4.6/server.ts";
+import { GrpcServer } from "https://deno.land/x/grpc_basic@0.4.7/server.ts";
 import { Greeter } from "./greeter.d.ts";
 
 const port = 50051;
@@ -111,7 +111,7 @@ for await (const conn of Deno.listen({ port })) {
 ### `client.ts`
 
 ```ts
-import { getClient } from "https://deno.land/x/grpc_basic@0.4.6/client.ts";
+import { getClient } from "https://deno.land/x/grpc_basic@0.4.7/client.ts";
 import { Greeter } from "./greeter.d.ts";
 
 const protoPath = new URL("./greeter.proto", import.meta.url);
