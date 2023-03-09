@@ -7,9 +7,9 @@ import type {
   Method,
   ReflectionObject,
   IParserResult
-} from "https://esm.sh/protobufjs@6.10.2/index.d.ts";
+} from "npm:protobufjs@6.10.2/index.d.ts";
 
-import protobuf from "https://esm.sh/protobufjs@6.10.2";
+import protobuf from "npm:protobufjs@6.10.2";
 
 export { Root, Type, Field, Service, Message, Method, ReflectionObject };
 
