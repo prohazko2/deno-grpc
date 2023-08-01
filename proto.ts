@@ -7,9 +7,9 @@ import type {
   Method,
   ReflectionObject,
   IParserResult
-} from "npm:protobufjs@6.10.2";
+} from "npm:protobufjs@7.2.4";
 
-import lib from "npm:protobufjs@6.10.2";
+import lib from "npm:protobufjs@7.2.4";
 
 export { Root, Type, Field, Service, Message, Method, ReflectionObject };
 
