@@ -5,15 +5,14 @@ import type {
   Service,
   Message,
   Method,
-  ReflectionObject
-} from "https://raw.githubusercontent.com/protobufjs/protobuf.js/v6.10.2/index.d.ts";
+  ReflectionObject,
+  IParserResult
+} from "npm:protobufjs@7.2.4";
 
-import protobuf from "./vendor/protobuf@v6.10.2.js";
-
-const lib = protobuf.exports as any;
+import lib from "npm:protobufjs@7.2.4";
 
 export { Root, Type, Field, Service, Message, Method, ReflectionObject };
 
-export function parse(proto: string): { package: string; root: Root } {
+export function parse(proto: string): IParserResult {
   return lib.parse(proto);
 }
