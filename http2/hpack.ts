@@ -290,9 +290,11 @@ export class HeaderSetDecompressor extends Transform {
       const index = rep.value;
       entry = this._table[index];
 
-      pair = entry.slice();
-      this.push(pair);
-      yield pair;
+      if (entry) {
+        pair = entry.slice();
+        this.push(pair);
+        yield pair;
+      }
     }
 
     // * A _literal representation_ that is _not added_ to the header table entails the following
